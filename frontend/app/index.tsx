@@ -43,9 +43,19 @@ type WeatherData = {
     humidity: number;
     isDay: number;
     time: string;
+    rain: number; // mm
+    snowfall: number; // cm
+    precipitation: number; // mm (total)
   };
-  hourly: Array<{ time: string; temp: number; code: number }>;
-  daily: Array<{ date: string; tMax: number; tMin: number; code: number }>;
+  hourly: { time: string; temp: number; code: number }[];
+  daily: {
+    date: string;
+    tMax: number;
+    tMin: number;
+    code: number;
+    rainSum: number; // mm
+    snowSum: number; // cm
+  }[];
   timezone: string;
 };
 
@@ -117,10 +127,18 @@ const MONTHS_FR = [
 ];
 
 function formatLongDate(d: Date) {
-  return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]}`;
+  return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]} ${d.getFullYear()}`;
 }
 function pad2(n: number) {
   return n.toString().padStart(2, "0");
+}
+
+// Format precipitation: rain in mm, snow in cm. Returns null if dry.
+function formatPrecip(rainMm: number, snowCm: number): string | null {
+  const parts: string[] = [];
+  if (snowCm > 0.05) parts.push(`Neige ${snowCm.toFixed(1).replace(".", ",")} cm`);
+  if (rainMm > 0.05) parts.push(`Pluie ${rainMm.toFixed(1).replace(".", ",")} mm`);
+  return parts.length === 0 ? null : parts.join(" • ");
 }
 
 // ---------- API ----------
@@ -153,9 +171,9 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lon),
-    current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day",
+    current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day,rain,showers,snowfall,precipitation",
     hourly: "temperature_2m,weather_code",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,rain_sum,showers_sum,snowfall_sum",
     timezone: "auto",
     forecast_days: "7",
   });
@@ -179,6 +197,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     tMax: d.daily.temperature_2m_max[i],
     tMin: d.daily.temperature_2m_min[i],
     code: d.daily.weather_code[i],
+    rainSum: (d.daily.rain_sum?.[i] ?? 0) + (d.daily.showers_sum?.[i] ?? 0),
+    snowSum: d.daily.snowfall_sum?.[i] ?? 0,
   }));
 
   return {
@@ -190,6 +210,9 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
       humidity: d.current.relative_humidity_2m,
       isDay: d.current.is_day,
       time: d.current.time,
+      rain: (d.current.rain ?? 0) + (d.current.showers ?? 0),
+      snowfall: d.current.snowfall ?? 0,
+      precipitation: d.current.precipitation ?? 0,
     },
     hourly,
     daily,
@@ -497,7 +520,9 @@ export default function Index() {
                   <Text style={styles.clockTime} testID="clock-time-display">
                     {pad2(now.getHours())}:{pad2(now.getMinutes())}
                   </Text>
-                  <Text style={styles.clockDate}>{formatLongDate(now)}</Text>
+                  <Text style={styles.clockDate} testID="clock-date-display">
+                    {formatLongDate(now)}
+                  </Text>
                 </View>
 
                 <View style={styles.currentCard} testID="current-weather-card">
@@ -511,13 +536,27 @@ export default function Index() {
                       <View style={styles.currentRow}>
                         <MaterialCommunityIcons name={currentInfo.icon} size={140} color="#fff" />
                         <Text style={styles.currentTemp} testID="current-temperature">
-                          {fmtTemp(weather.current.temperature, unit)}
+                          {`${Math.round(unit === "C" ? weather.current.temperature : cToF(weather.current.temperature))}`}
+                          <Text style={styles.currentTempSep}>/</Text>
+                          {`${Math.round(unit === "C" ? weather.current.apparent : cToF(weather.current.apparent))}°`}
                         </Text>
                       </View>
                       <Text style={styles.conditionText}>{currentInfo.label}</Text>
                       <Text style={styles.feelsLike}>
-                        Ressenti {fmtTemp(weather.current.apparent, unit)} • Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
+                        Réel / Ressenti (humidex) • Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
                       </Text>
+                      {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
+                        <View style={styles.precipBadge} testID="current-precip">
+                          <MaterialCommunityIcons
+                            name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
+                            size={26}
+                            color="#fff"
+                          />
+                          <Text style={styles.precipText}>
+                            {formatPrecip(weather.current.rain, weather.current.snowfall)}
+                          </Text>
+                        </View>
+                      ) : null}
                     </>
                   ) : null}
                 </View>
@@ -552,9 +591,17 @@ export default function Index() {
                     const date = new Date(`${d.date}T12:00:00`);
                     const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR_SHORT[date.getDay()];
                     const info = infoFor(d.code, 1);
+                    const precipLabel = formatPrecip(d.rainSum, d.snowSum);
                     return (
                       <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
-                        <Text style={styles.dailyDay}>{dayName}</Text>
+                        <View style={styles.dailyDayCol}>
+                          <Text style={styles.dailyDay}>{dayName}</Text>
+                          {precipLabel ? (
+                            <Text style={styles.dailyPrecip} testID={`day-precip-${i}`}>
+                              {precipLabel}
+                            </Text>
+                          ) : null}
+                        </View>
                         <MaterialCommunityIcons name={info.icon} size={44} color="#fff" style={{ width: 50 }} />
                         <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
                         <View style={styles.dailyBarTrack}>
@@ -711,28 +758,33 @@ const styles = StyleSheet.create({
   forecastCol: { gap: 12 },
   forecastColWide: { flex: 5 },
 
-  // CLOCK
+  // CLOCK — time left, date right (bigger, with year)
   clockCard: {
     backgroundColor: "rgba(0,0,0,0.45)",
     borderRadius: 28,
     paddingVertical: 28,
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
   },
   clockTime: {
     color: "#fff",
-    fontSize: 140,
+    fontSize: 110,
     fontWeight: "900",
     letterSpacing: -4,
-    lineHeight: 150,
+    lineHeight: 118,
     fontVariant: ["tabular-nums"],
   },
   clockDate: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 28,
-    fontWeight: "600",
-    marginTop: 4,
+    color: "#fff",
+    fontSize: 38,
+    fontWeight: "700",
+    textAlign: "right",
+    flexShrink: 1,
     textTransform: "capitalize",
+    lineHeight: 44,
   },
 
   // CURRENT
@@ -756,12 +808,29 @@ const styles = StyleSheet.create({
   },
   currentTemp: {
     color: "#fff",
-    fontSize: 150,
+    fontSize: 130,
     fontWeight: "800",
-    letterSpacing: -4,
+    letterSpacing: -3,
+  },
+  currentTempSep: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 110,
+    fontWeight: "300",
   },
   conditionText: { color: "#fff", fontSize: 32, fontWeight: "600", marginTop: 4 },
   feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "500", marginTop: 8 },
+  precipBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: "rgba(52,152,219,0.55)",
+  },
+  precipText: { color: "#fff", fontSize: 22, fontWeight: "700" },
 
   // SECTION
   sectionTitle: {
