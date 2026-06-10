@@ -1,0 +1,97 @@
+{
+  "project_name": "Old iPad Weather App (French)",
+  "theme_archetype": "Archetype 4: Swiss & High-Contrast (Accessibility First)",
+  "rationale": "For an elderly user on an old iPad, extreme legibility, high contrast, and massive touch targets are paramount. We drop delicate aesthetics for undeniable clarity. Solid, high-contrast containers over subtle weather gradients to ensure readability.",
+  "colors": {
+    "background_gradients": {
+      "clear_day": ["#4DA0B0", "#D39D38"],
+      "cloudy_day": ["#757F9A", "#D7DDE8"],
+      "rainy": ["#2C3E50", "#3498DB"],
+      "night": ["#0F2027", "#203A43", "#2C5364"]
+    },
+    "surfaces": {
+      "card_light": "rgba(255, 255, 255, 0.85)",
+      "card_dark": "rgba(0, 0, 0, 0.70)"
+    },
+    "text": {
+      "primary_light": "#FFFFFF",
+      "primary_dark": "#111827",
+      "secondary_light": "rgba(255, 255, 255, 0.8)",
+      "secondary_dark": "rgba(0, 0, 0, 0.7)"
+    },
+    "accent": "#FF3B30"
+  },
+  "typography": {
+    "font_family": "System fonts (San Francisco/Roboto) to maximize compatibility on older devices, explicitly set to bold/heavy weights.",
+    "hierarchy": {
+      "time_display": { "fontSize": 140, "fontWeight": "900", "letterSpacing": -2 },
+      "temperature_massive": { "fontSize": 160, "fontWeight": "800", "letterSpacing": -3 },
+      "h1_city": { "fontSize": 56, "fontWeight": "700" },
+      "h2_section": { "fontSize": 32, "fontWeight": "600", "textTransform": "uppercase", "letterSpacing": 2 },
+      "body_large": { "fontSize": 28, "fontWeight": "500" },
+      "body_medium": { "fontSize": 24, "fontWeight": "400" }
+    }
+  },
+  "layout_spacing": {
+    "padding_global": 32,
+    "card_padding": 24,
+    "gap_sections": 32,
+    "gap_items": 16,
+    "border_radius": 24
+  },
+  "components_instructions": {
+    "MainLayout": {
+      "structure": "Bento Grid approach adapted for iPad. Landscape: Left column (60%) for Clock & Current Temp; Right column (40%) for Forecasts. Portrait: Stacked vertically with ample spacing.",
+      "accessibility": "Ensure contrast ratios are strictly maintained. Cards must have solid or highly opaque backgrounds to decouple text from the dynamic background gradients."
+    },
+    "Header": {
+      "elements": "Search Bar (huge input) + Geolocation Button (massive touch target, min 64x64) + °C/°F Toggle (segmented control style).",
+      "search_placeholder": "Rechercher une ville..."
+    },
+    "ClockWidget": {
+      "display": "HH:MM (24h format for French). Date format: 'Lundi 14 Octobre'."
+    },
+    "CurrentWeather": {
+      "elements": "Weather Icon (huge, ~120px), Temperature (160pt), Condition text (e.g., 'Ciel dégagé')."
+    },
+    "HourlyForecast": {
+      "layout": "Horizontal ScrollView. Cards must be wide enough to easily swipe.",
+      "item": "Time (e.g., '14h'), Icon, Temp. Font size min 24pt."
+    },
+    "DailyForecast": {
+      "layout": "Vertical list. Each row needs solid padding (py-4).",
+      "item": "Day name (e.g., 'Mar'), Icon, Min/Max Temp. Font size min 28pt."
+    }
+  },
+  "media_and_icons": {
+    "icons_library": "@expo/vector-icons/MaterialCommunityIcons or lucide-react-native",
+    "weather_icons_mapping": "Use high-contrast filled icons (e.g., 'weather-sunny', 'weather-pouring') rather than thin outlines for better visibility."
+  },
+  "testing_attributes": {
+    "note": "React Native uses `testID` instead of `data-testid`.",
+    "elements": {
+      "search_input": "search-city-input",
+      "geo_button": "geolocation-button",
+      "cf_toggle": "unit-toggle-button",
+      "time_display": "clock-time-display",
+      "current_temp": "current-temperature",
+      "hourly_scroll": "hourly-forecast-scroll",
+      "daily_list": "daily-forecast-list"
+    }
+  },
+  "api_integration": {
+    "service": "Open-Meteo API",
+    "endpoints": [
+      "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto"
+    ],
+    "geocoding": "https://geocoding-api.open-meteo.com/v1/search?name={city}&count=5&language=fr&format=json"
+  },
+  "instructions_to_main_agent": [
+    "Build this as a single-screen Expo React Native application.",
+    "DO NOT use web-only DOM components or tailwindcss web libraries. Use React Native StyleSheet or NativeWind.",
+    "Prioritize iPad dimensions. Use 'useWindowDimensions' to adjust layouts responsively.",
+    "Keep backgrounds visually simple if device performance is a concern; use 'expo-linear-gradient' for the weather-based backgrounds.",
+    "Translate all static UI text to French as requested (e.g., 'Aujourd\\'hui', 'Rechercher...').",
+    "Ensure 'testID' props are applied to all interactive elements for automated testing."
+  ]
+}
