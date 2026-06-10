@@ -49,6 +49,12 @@ type WeatherData = {
     precipitation: number; // mm (total)
   };
   hourly: { time: string; temp: number; apparent: number; code: number }[];
+  // Full hourly arrays for 7 days, used by the day timeline bar
+  hourlyAll: {
+    time: string[];
+    sunshine: number[]; // seconds in the hour (0..3600)
+    precipitation: number[]; // mm in the hour
+  };
   daily: {
     date: string;
     tMax: number;
@@ -58,6 +64,8 @@ type WeatherData = {
     code: number;
     rainSum: number; // mm
     snowSum: number; // cm
+    windMax: number; // km/h
+    gustMax: number; // km/h
   }[];
   timezone: string;
 };
@@ -199,8 +207,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     latitude: String(lat),
     longitude: String(lon),
     current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day,rain,showers,snowfall,precipitation",
-    hourly: "temperature_2m,apparent_temperature,weather_code",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,rain_sum,showers_sum,snowfall_sum",
+    hourly: "temperature_2m,apparent_temperature,weather_code,sunshine_duration,precipitation",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,rain_sum,showers_sum,snowfall_sum,wind_speed_10m_max,wind_gusts_10m_max",
     timezone: "auto",
     forecast_days: "7",
   });
@@ -229,6 +237,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     code: d.daily.weather_code[i],
     rainSum: (d.daily.rain_sum?.[i] ?? 0) + (d.daily.showers_sum?.[i] ?? 0),
     snowSum: d.daily.snowfall_sum?.[i] ?? 0,
+    windMax: d.daily.wind_speed_10m_max?.[i] ?? 0,
+    gustMax: d.daily.wind_gusts_10m_max?.[i] ?? 0,
   }));
 
   return {
@@ -245,6 +255,11 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
       precipitation: d.current.precipitation ?? 0,
     },
     hourly,
+    hourlyAll: {
+      time: allTimes,
+      sunshine: d.hourly.sunshine_duration ?? [],
+      precipitation: d.hourly.precipitation ?? [],
+    },
     daily,
     timezone: d.timezone,
   };
@@ -253,6 +268,76 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
 // ---------- Storage keys ----------
 const K_UNIT = "weather.unit";
 const K_PLACE = "weather.place";
+
+// ---------- Day-timeline helpers ----------
+type HourSample = { hour: number; sunshine: number; precip: number };
+
+function getDayHours(
+  all: { time: string[]; sunshine: number[]; precipitation: number[] },
+  date: string,
+): HourSample[] {
+  const out: HourSample[] = Array.from({ length: 24 }, (_, h) => ({ hour: h, sunshine: 0, precip: 0 }));
+  for (let idx = 0; idx < all.time.length; idx++) {
+    const t = all.time[idx];
+    if (!t.startsWith(date)) continue;
+    const hour = parseInt(t.slice(11, 13), 10);
+    if (hour >= 0 && hour < 24) {
+      out[hour] = {
+        hour,
+        sunshine: all.sunshine[idx] ?? 0,
+        precip: all.precipitation[idx] ?? 0,
+      };
+    }
+  }
+  return out;
+}
+
+function segmentColor(s: HourSample): string {
+  if (s.precip >= 0.05) {
+    // Blue, deeper for heavier rain
+    if (s.precip >= 2) return "#1976D2";
+    if (s.precip >= 0.5) return "#42A5F5";
+    return "#90CAF9";
+  }
+  if (s.sunshine >= 1800) return "#FFC83D"; // mostly sunny in this hour
+  if (s.sunshine >= 600) return "#FFE082"; // partly sunny
+  return "rgba(255,255,255,0.18)"; // cloudy / night
+}
+
+// ---------- Alerts ----------
+type WAlert = { kind: "wind" | "storm" | "snow" | "rain"; label: string; day: string };
+
+function computeAlerts(
+  daily: { date: string; code: number; gustMax: number; windMax: number; snowSum: number; rainSum: number }[],
+): WAlert[] {
+  const out: WAlert[] = [];
+  daily.forEach((d, i) => {
+    const date = new Date(`${d.date}T12:00:00`);
+    const when = i === 0 ? "aujourd'hui" : i === 1 ? "demain" : DAYS_FR[date.getDay()].toLowerCase();
+    if (d.gustMax >= 70) {
+      out.push({ kind: "wind", day: d.date, label: `Vent fort ${when} — rafales jusqu'à ${Math.round(d.gustMax)} km/h` });
+    } else if (d.windMax >= 60) {
+      out.push({ kind: "wind", day: d.date, label: `Vent soutenu ${when} — jusqu'à ${Math.round(d.windMax)} km/h` });
+    }
+    if (d.code >= 95) {
+      out.push({ kind: "storm", day: d.date, label: `Orage prévu ${when}` });
+    }
+    if (d.snowSum >= 5) {
+      out.push({ kind: "snow", day: d.date, label: `Fortes chutes de neige ${when} — ${d.snowSum.toFixed(1).replace(".", ",")} cm` });
+    }
+    if (d.rainSum >= 25) {
+      out.push({ kind: "rain", day: d.date, label: `Fortes pluies ${when} — ${d.rainSum.toFixed(0)} mm` });
+    }
+  });
+  return out;
+}
+
+const ALERT_ICON: Record<WAlert["kind"], keyof typeof MaterialCommunityIcons.glyphMap> = {
+  wind: "weather-windy",
+  storm: "weather-lightning",
+  snow: "weather-snowy-heavy",
+  rain: "weather-pouring",
+};
 
 // ---------- Main screen ----------
 export default function Index() {
@@ -437,6 +522,8 @@ export default function Index() {
     return parts.length > 1 ? `${parts[0]}, ${parts[parts.length - 1]}` : parts[0] ?? "—";
   }, [place]);
 
+  const alerts = useMemo(() => (weather ? computeAlerts(weather.daily) : []), [weather]);
+
   return (
     <View style={styles.root} testID="weather-screen">
       <ImageBackground source={bgImage} style={StyleSheet.absoluteFill} resizeMode="cover" testID="weather-background">
@@ -605,6 +692,21 @@ export default function Index() {
 
               {/* RIGHT / BOTTOM — forecasts */}
               <View style={[styles.forecastCol, isWide && styles.forecastColWide]}>
+                {alerts.length > 0 ? (
+                  <View style={styles.alertSection} testID="alerts-section">
+                    <View style={styles.alertHeader}>
+                      <MaterialCommunityIcons name="alert-decagram" size={26} color="#FFD66B" />
+                      <Text style={styles.alertHeaderText}>Alertes météo</Text>
+                    </View>
+                    {alerts.map((a, i) => (
+                      <View key={`${a.day}-${a.kind}-${i}`} style={styles.alertItem} testID={`alert-${i}`}>
+                        <MaterialCommunityIcons name={ALERT_ICON[a.kind]} size={28} color="#fff" />
+                        <Text style={styles.alertText} numberOfLines={2}>{a.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
                 <Text style={styles.sectionTitle}>Prochaines heures</Text>
                 <ScrollView
                   horizontal
@@ -631,11 +733,29 @@ export default function Index() {
 
                 <Text style={[styles.sectionTitle, { marginTop: 28 }]}>7 prochains jours</Text>
                 <View style={styles.dailyList} testID="daily-forecast-list">
+                  {/* Hour ticks shared header */}
+                  <View style={styles.tickHeader} pointerEvents="none">
+                    {/* Spacer aligns ticks above the timeline column (after day/icon/min) */}
+                    <View style={styles.tickHeaderLeftSpacer} />
+                    <View style={styles.tickHeaderTrack}>
+                      {[6, 12, 18, 24].map((h) => (
+                        <Text
+                          key={h}
+                          style={[styles.tickLabel, { left: `${(h / 24) * 100}%` }]}
+                        >
+                          {h}h
+                        </Text>
+                      ))}
+                    </View>
+                    <View style={styles.tickHeaderRightSpacer} />
+                  </View>
+
                   {weather?.daily.map((d, i) => {
                     const date = new Date(`${d.date}T12:00:00`);
                     const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR_SHORT[date.getDay()];
                     const info = infoFor(d.code, 1);
                     const precipLabel = formatPrecip(d.rainSum, d.snowSum);
+                    const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
                     return (
                       <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
                         <View style={styles.dailyDayCol}>
@@ -653,16 +773,21 @@ export default function Index() {
                             ress. {fmtTemp(d.aMin, unit)}
                           </Text>
                         </View>
-                        <View style={styles.dailyBarTrack}>
-                          <View
-                            style={[
-                              styles.dailyBarFill,
-                              {
-                                left: `${tempBarPosition(d.tMin, weather?.daily ?? [])}%`,
-                                width: `${tempBarWidth(d.tMin, d.tMax, weather?.daily ?? [])}%`,
-                              },
-                            ]}
-                          />
+                        <View style={styles.timelineWrap} testID={`day-timeline-${i}`}>
+                          <View style={styles.timelineTrack}>
+                            {hours.map((s) => (
+                              <View
+                                key={s.hour}
+                                style={[styles.timelineSegment, { backgroundColor: segmentColor(s) }]}
+                              />
+                            ))}
+                          </View>
+                          {/* Vertical grid lines at quarters */}
+                          <View style={styles.timelineGrid} pointerEvents="none">
+                            {[6, 12, 18].map((h) => (
+                              <View key={h} style={[styles.timelineGridLine, { left: `${(h / 24) * 100}%` }]} />
+                            ))}
+                          </View>
                         </View>
                         <View style={styles.dailyTempCol}>
                           <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
@@ -931,13 +1056,102 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
-  dailyDayCol: { width: 130 },
-  dailyDay: { color: "#fff", fontSize: 26, fontWeight: "700" },
+  dailyDayCol: { width: 150 },
+  dailyDay: { color: "#fff", fontSize: 24, fontWeight: "700" },
   dailyPrecip: { color: "#9BD0FF", fontSize: 16, fontWeight: "700", marginTop: 2 },
   dailyTempCol: { width: 72, alignItems: "flex-end" },
   dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 24, fontWeight: "600" },
   dailyMax: { color: "#fff", fontSize: 24, fontWeight: "700" },
   dailyFeels: { color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: "600", marginTop: 2 },
+  // DAILY TIMELINE BAR (24h)
+  tickHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    gap: 12,
+  },
+  tickHeaderLeftSpacer: { width: 150 + 50 + 72 + 24 }, // dayCol + icon + tempCol + gaps
+  tickHeaderRightSpacer: { width: 72 + 8 }, // tempCol + half gap
+  tickHeaderTrack: {
+    flex: 1,
+    height: 18,
+    position: "relative",
+  },
+  tickLabel: {
+    position: "absolute",
+    top: 0,
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    fontWeight: "700",
+    transform: [{ translateX: -14 }],
+    width: 28,
+    textAlign: "center",
+  },
+  timelineWrap: {
+    flex: 1,
+    height: 22,
+    marginHorizontal: 8,
+    position: "relative",
+    justifyContent: "center",
+  },
+  timelineTrack: {
+    flexDirection: "row",
+    height: 18,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  timelineSegment: {
+    flex: 1,
+    height: "100%",
+    marginHorizontal: 0.5,
+  },
+  timelineGrid: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  timelineGridLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+
+  // ALERTS
+  alertSection: {
+    backgroundColor: "rgba(140,30,30,0.78)",
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    marginBottom: 12,
+    gap: 8,
+  },
+  alertHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  alertHeaderText: {
+    color: "#FFD66B",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  alertItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 6,
+  },
+  alertText: {
+    color: "#fff",
+    fontSize: 19,
+    fontWeight: "600",
+    flex: 1,
+  },
+
+  // OLD temp bar (kept for safety, no longer used)
   dailyBarTrack: {
     flex: 1,
     height: 8,
