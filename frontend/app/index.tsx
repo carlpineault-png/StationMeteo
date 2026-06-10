@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
@@ -47,11 +48,13 @@ type WeatherData = {
     snowfall: number; // cm
     precipitation: number; // mm (total)
   };
-  hourly: { time: string; temp: number; code: number }[];
+  hourly: { time: string; temp: number; apparent: number; code: number }[];
   daily: {
     date: string;
     tMax: number;
     tMin: number;
+    aMax: number;
+    aMin: number;
     code: number;
     rainSum: number; // mm
     snowSum: number; // cm
@@ -100,15 +103,39 @@ function infoFor(code: number, isDay = 1) {
   return { label: info.label, icon };
 }
 
-// ---------- Gradient by condition ----------
+// ---------- Gradient + Background image by condition ----------
 function gradientFor(code: number, isDay = 1): [string, string, ...string[]] {
-  if (!isDay) return ["#0F2027", "#203A43", "#2C5364"];
-  if (code === 0 || code === 1) return ["#4DA0B0", "#D39D38"];
-  if (code === 2 || code === 3 || code === 45 || code === 48) return ["#757F9A", "#D7DDE8"];
-  if (code >= 51 && code <= 67) return ["#2C3E50", "#3498DB"];
-  if (code >= 71 && code <= 86) return ["#83a4d4", "#b6fbff"];
-  if (code >= 95) return ["#373B44", "#4286f4"];
-  return ["#4DA0B0", "#D39D38"];
+  if (!isDay) return ["rgba(15,32,39,0.55)", "rgba(44,83,100,0.65)"];
+  if (code === 0 || code === 1) return ["rgba(77,160,176,0.35)", "rgba(211,157,56,0.45)"];
+  if (code === 2 || code === 3 || code === 45 || code === 48) return ["rgba(117,127,154,0.45)", "rgba(215,221,232,0.45)"];
+  if (code >= 51 && code <= 67) return ["rgba(44,62,80,0.55)", "rgba(52,152,219,0.55)"];
+  if (code >= 71 && code <= 86) return ["rgba(131,164,212,0.45)", "rgba(182,251,255,0.45)"];
+  if (code >= 95) return ["rgba(55,59,68,0.65)", "rgba(66,134,244,0.6)"];
+  return ["rgba(77,160,176,0.35)", "rgba(211,157,56,0.45)"];
+}
+
+// Background photo (local assets). Chosen by weather group + day/night.
+const BG_IMAGES = {
+  sun: require("../assets/weather/sun.jpg"),
+  partly: require("../assets/weather/partly.jpg"),
+  cloudy: require("../assets/weather/cloudy.jpg"),
+  fog: require("../assets/weather/fog.jpg"),
+  rain: require("../assets/weather/rain.jpg"),
+  snow: require("../assets/weather/snow.jpg"),
+  night: require("../assets/weather/night.jpg"),
+  storm: require("../assets/weather/storm.jpg"),
+};
+
+function backgroundFor(code: number, isDay = 1) {
+  if (!isDay) return BG_IMAGES.night;
+  if (code === 0 || code === 1) return BG_IMAGES.sun;
+  if (code === 2) return BG_IMAGES.partly;
+  if (code === 3) return BG_IMAGES.cloudy;
+  if (code === 45 || code === 48) return BG_IMAGES.fog;
+  if (code >= 51 && code <= 67) return BG_IMAGES.rain;
+  if (code >= 71 && code <= 86) return BG_IMAGES.snow;
+  if (code >= 95) return BG_IMAGES.storm;
+  return BG_IMAGES.sun;
 }
 
 // ---------- Unit helpers ----------
@@ -172,8 +199,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     latitude: String(lat),
     longitude: String(lon),
     current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,is_day,rain,showers,snowfall,precipitation",
-    hourly: "temperature_2m,weather_code",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min,rain_sum,showers_sum,snowfall_sum",
+    hourly: "temperature_2m,apparent_temperature,weather_code",
+    daily: "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,rain_sum,showers_sum,snowfall_sum",
     timezone: "auto",
     forecast_days: "7",
   });
@@ -189,6 +216,7 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
   const hourly = allTimes.slice(sliceIdx, sliceIdx + 24).map((t, i) => ({
     time: t,
     temp: d.hourly.temperature_2m[sliceIdx + i],
+    apparent: d.hourly.apparent_temperature?.[sliceIdx + i] ?? d.hourly.temperature_2m[sliceIdx + i],
     code: d.hourly.weather_code[sliceIdx + i],
   }));
 
@@ -196,6 +224,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     date,
     tMax: d.daily.temperature_2m_max[i],
     tMin: d.daily.temperature_2m_min[i],
+    aMax: d.daily.apparent_temperature_max?.[i] ?? d.daily.temperature_2m_max[i],
+    aMin: d.daily.apparent_temperature_min?.[i] ?? d.daily.temperature_2m_min[i],
     code: d.daily.weather_code[i],
     rainSum: (d.daily.rain_sum?.[i] ?? 0) + (d.daily.showers_sum?.[i] ?? 0),
     snowSum: d.daily.snowfall_sum?.[i] ?? 0,
@@ -387,8 +417,13 @@ export default function Index() {
 
   // Derived values
   const gradient = useMemo(() => {
-    if (!weather) return ["#0F2027", "#2C5364"] as [string, string];
+    if (!weather) return ["rgba(15,32,39,0.55)", "rgba(44,83,100,0.55)"] as [string, string];
     return gradientFor(weather.current.weatherCode, weather.current.isDay);
+  }, [weather]);
+
+  const bgImage = useMemo(() => {
+    if (!weather) return BG_IMAGES.night;
+    return backgroundFor(weather.current.weatherCode, weather.current.isDay);
   }, [weather]);
 
   const currentInfo = useMemo(() => {
@@ -404,7 +439,10 @@ export default function Index() {
 
   return (
     <View style={styles.root} testID="weather-screen">
-      <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+      <ImageBackground source={bgImage} style={StyleSheet.absoluteFill} resizeMode="cover" testID="weather-background">
+        <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+        <View style={styles.darkOverlay} />
+      </ImageBackground>
       <StatusBar style="light" />
       <SafeAreaView style={styles.safe} edges={["top", "bottom", "left", "right"]}>
         <KeyboardAvoidingView
@@ -535,15 +573,18 @@ export default function Index() {
                     <>
                       <View style={styles.currentRow}>
                         <MaterialCommunityIcons name={currentInfo.icon} size={140} color="#fff" />
-                        <Text style={styles.currentTemp} testID="current-temperature">
-                          {`${Math.round(unit === "C" ? weather.current.temperature : cToF(weather.current.temperature))}`}
-                          <Text style={styles.currentTempSep}>/</Text>
-                          {`${Math.round(unit === "C" ? weather.current.apparent : cToF(weather.current.apparent))}°`}
-                        </Text>
+                        <View style={styles.tempBlock}>
+                          <Text style={styles.currentTemp} testID="current-temperature">
+                            {fmtTemp(weather.current.temperature, unit)}
+                          </Text>
+                          <Text style={styles.currentFeels} testID="current-feels-like">
+                            Ressenti {fmtTemp(weather.current.apparent, unit)}
+                          </Text>
+                        </View>
                       </View>
                       <Text style={styles.conditionText}>{currentInfo.label}</Text>
                       <Text style={styles.feelsLike}>
-                        Réel / Ressenti (humidex) • Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
+                        Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
                       </Text>
                       {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
                         <View style={styles.precipBadge} testID="current-precip">
@@ -580,6 +621,9 @@ export default function Index() {
                         <Text style={styles.hourLabel}>{label}</Text>
                         <MaterialCommunityIcons name={info.icon} size={44} color="#fff" />
                         <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
+                        <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
+                          ress. {fmtTemp(h.apparent, unit)}
+                        </Text>
                       </View>
                     );
                   })}
@@ -603,7 +647,12 @@ export default function Index() {
                           ) : null}
                         </View>
                         <MaterialCommunityIcons name={info.icon} size={44} color="#fff" style={{ width: 50 }} />
-                        <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
+                        <View style={styles.dailyTempCol}>
+                          <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
+                          <Text style={styles.dailyFeels} testID={`day-feels-min-${i}`}>
+                            ress. {fmtTemp(d.aMin, unit)}
+                          </Text>
+                        </View>
                         <View style={styles.dailyBarTrack}>
                           <View
                             style={[
@@ -615,7 +664,12 @@ export default function Index() {
                             ]}
                           />
                         </View>
-                        <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
+                        <View style={styles.dailyTempCol}>
+                          <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
+                          <Text style={styles.dailyFeels} testID={`day-feels-max-${i}`}>
+                            ress. {fmtTemp(d.aMax, unit)}
+                          </Text>
+                        </View>
                       </View>
                     );
                   })}
@@ -648,6 +702,7 @@ function tempBarWidth(min: number, max: number, daily: WeatherData["daily"]) {
 // ---------- Styles ----------
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0F2027" },
+  darkOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
   safe: { flex: 1 },
   flex: { flex: 1 },
 
@@ -806,16 +861,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  tempBlock: { alignItems: "flex-end" },
   currentTemp: {
     color: "#fff",
-    fontSize: 130,
+    fontSize: 150,
     fontWeight: "800",
-    letterSpacing: -3,
+    letterSpacing: -4,
+    lineHeight: 158,
   },
-  currentTempSep: {
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 110,
-    fontWeight: "300",
+  currentFeels: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 26,
+    fontWeight: "600",
+    marginTop: -8,
   },
   conditionText: { color: "#fff", fontSize: 32, fontWeight: "600", marginTop: 4 },
   feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "500", marginTop: 8 },
@@ -847,15 +905,16 @@ const styles = StyleSheet.create({
   hourlyRow: { gap: 12, paddingRight: 24 },
   hourCard: {
     width: 110,
-    paddingVertical: 18,
-    paddingHorizontal: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 6,
     borderRadius: 24,
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   hourLabel: { color: "#fff", fontSize: 20, fontWeight: "600" },
   hourTemp: { color: "#fff", fontSize: 28, fontWeight: "700" },
+  hourFeels: { color: "rgba(255,255,255,0.75)", fontSize: 14, fontWeight: "500" },
 
   // DAILY
   dailyList: {
@@ -873,8 +932,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
   dailyDay: { color: "#fff", fontSize: 26, fontWeight: "700", width: 100 },
-  dailyMin: { color: "rgba(255,255,255,0.85)", fontSize: 24, fontWeight: "600", width: 60, textAlign: "right" },
-  dailyMax: { color: "#fff", fontSize: 24, fontWeight: "700", width: 60, textAlign: "right" },
+  dailyMin: { color: "rgba(255,255,255,0.85)", fontSize: 24, fontWeight: "600" },
+  dailyMax: { color: "#fff", fontSize: 24, fontWeight: "700" },
   dailyBarTrack: {
     flex: 1,
     height: 8,
