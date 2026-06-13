@@ -385,6 +385,17 @@ export default function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [hourlyCanLeft, setHourlyCanLeft] = useState(false);
+  const [hourlyCanRight, setHourlyCanRight] = useState(false);
+
+  const handleHourlyScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number }; layoutMeasurement: { width: number }; contentSize: { width: number } } }) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    const x = contentOffset.x;
+    const maxX = Math.max(0, contentSize.width - layoutMeasurement.width);
+    setHourlyCanLeft(x > 4);
+    setHourlyCanRight(x < maxX - 4);
+  }, []);
+
   const persistUnit = useCallback(async (u: Unit) => {
     setUnit(u);
     await storage.setItem(K_UNIT, u);
@@ -713,11 +724,6 @@ export default function Index() {
 
                 <View style={styles.hourlyTitleRow}>
                   <Text style={styles.sectionTitle}>Prochaines heures</Text>
-                  <View style={styles.scrollHint} testID="hourly-scroll-hint">
-                    <Text style={styles.scrollHintText}>défiler</Text>
-                    <MaterialCommunityIcons name="gesture-swipe-horizontal" size={18} color="rgba(255,255,255,0.9)" />
-                    <MaterialCommunityIcons name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
-                  </View>
                 </View>
                 <View style={styles.hourlyContainer}>
                   <ScrollView
@@ -725,6 +731,16 @@ export default function Index() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.hourlyRow}
                     style={styles.hourlyScroll}
+                    onScroll={handleHourlyScroll}
+                    onContentSizeChange={(w) =>
+                      setHourlyCanRight(w > 0)
+                    }
+                    onLayout={(ev) => {
+                      // Ensure right chevron appears on first paint if content overflows
+                      const layoutW = ev.nativeEvent.layout.width;
+                      if (layoutW > 0) setHourlyCanRight(true);
+                    }}
+                    scrollEventThrottle={16}
                     testID="hourly-forecast-scroll"
                   >
                     {weather?.hourly.map((h, i) => {
@@ -743,17 +759,34 @@ export default function Index() {
                       );
                     })}
                   </ScrollView>
-                  {/* Right-edge fade indicates more content scrolls in from the right */}
-                  <LinearGradient
-                    pointerEvents="none"
-                    colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.6)"]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.hourlyFade}
-                  />
-                  <View style={styles.hourlyFadeChevron} pointerEvents="none">
-                    <MaterialCommunityIcons name="chevron-right" size={36} color="rgba(255,255,255,0.9)" />
-                  </View>
+                  {hourlyCanLeft ? (
+                    <>
+                      <LinearGradient
+                        pointerEvents="none"
+                        colors={["rgba(0,0,0,0.55)", "rgba(0,0,0,0)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={[styles.hourlyFade, styles.hourlyFadeLeft]}
+                      />
+                      <View style={[styles.hourlyFadeChevron, styles.hourlyFadeChevronLeft]} pointerEvents="none" testID="hourly-chevron-left">
+                        <MaterialCommunityIcons name="chevron-left" size={40} color="#fff" />
+                      </View>
+                    </>
+                  ) : null}
+                  {hourlyCanRight ? (
+                    <>
+                      <LinearGradient
+                        pointerEvents="none"
+                        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"]}
+                        start={{ x: 0, y: 0.5 }}
+                        end={{ x: 1, y: 0.5 }}
+                        style={[styles.hourlyFade, styles.hourlyFadeRight]}
+                      />
+                      <View style={[styles.hourlyFadeChevron, styles.hourlyFadeChevronRight]} pointerEvents="none" testID="hourly-chevron-right">
+                        <MaterialCommunityIcons name="chevron-right" size={40} color="#fff" />
+                      </View>
+                    </>
+                  ) : null}
                 </View>
               </View>
             </View>
@@ -1072,42 +1105,26 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  scrollHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  scrollHintText: {
-    color: "rgba(255,255,255,0.95)",
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
   hourlyContainer: { position: "relative" },
   hourlyScroll: { flexGrow: 0 },
-  hourlyRow: { gap: 8, paddingRight: 40, alignItems: "stretch" },
+  hourlyRow: { gap: 8, paddingHorizontal: 4, alignItems: "stretch" },
   hourlyFade: {
     position: "absolute",
     top: 0,
     bottom: 0,
-    right: 0,
     width: 56,
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
   },
+  hourlyFadeLeft: { left: 0, borderTopLeftRadius: 18, borderBottomLeftRadius: 18 },
+  hourlyFadeRight: { right: 0, borderTopRightRadius: 18, borderBottomRightRadius: 18 },
   hourlyFadeChevron: {
     position: "absolute",
-    right: 4,
     top: 0,
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
   },
+  hourlyFadeChevronLeft: { left: 0 },
+  hourlyFadeChevronRight: { right: 0 },
   hourCard: {
     width: 84,
     paddingVertical: 12,
