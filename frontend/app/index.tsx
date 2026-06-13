@@ -554,7 +554,7 @@ export default function Index() {
       lat,
       lon,
       zoom: "6",
-      overlay: "rain",
+      overlay: "clouds",
       level: "surface",
       menu: "",
       message: "true",
@@ -763,9 +763,6 @@ export default function Index() {
                 </View>
 
                 {/* HOURLY under hero */}
-                <View style={styles.hourlyTitleRow}>
-                  <Text style={styles.sectionTitle}>Prochaines heures</Text>
-                </View>
                 <View style={styles.hourlyContainer}>
                   <ScrollView
                     horizontal
@@ -869,7 +866,6 @@ export default function Index() {
 
             {/* BOTTOM — 7-day forecast full width */}
             <View style={styles.bottomSection}>
-              <Text style={styles.sectionTitle}>7 prochains jours</Text>
               <View style={styles.dailyList} testID="daily-forecast-list">
                 <View style={styles.tickHeader} pointerEvents="none">
                   <View style={styles.tickHeaderLeftSpacer} />
@@ -902,7 +898,7 @@ export default function Index() {
                           </Text>
                         ) : null}
                       </View>
-                      <MaterialCommunityIcons name={info.icon} size={36} color="#fff" style={{ width: 42 }} />
+                      <MaterialCommunityIcons name={info.icon} size={32} color="#fff" style={{ width: 38 }} />
                       <View style={styles.dailyTempCol}>
                         <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
                         <Text style={styles.dailyFeels} testID={`day-feels-min-${i}`}>
@@ -1101,10 +1097,10 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     gap: 10,
   },
-  topRow: { flex: 1.5, flexDirection: "row", gap: 12 },
+  topRow: { flex: 1, flexDirection: "row", gap: 12 },
   topLeft: { flex: 1, gap: 10 },
   topRight: { flex: 1.1, gap: 8 },
-  bottomSection: { flex: 1, gap: 4 },
+  bottomSection: { flexShrink: 0, minHeight: 290, gap: 4 },
 
   // MAIN LAYOUT
   mainArea: { flexDirection: "column", gap: 24, marginTop: 12 },
@@ -1357,18 +1353,18 @@ const styles = StyleSheet.create({
   dailyRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 5,
+    paddingVertical: 3,
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
   dailyDayCol: { width: 120 },
-  dailyDay: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  dailyPrecip: { color: "#9BD0FF", fontSize: 12, fontWeight: "700", marginTop: 1 },
+  dailyDay: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  dailyPrecip: { color: "#9BD0FF", fontSize: 11, fontWeight: "700", marginTop: 1 },
   dailyTempCol: { width: 60, alignItems: "flex-end" },
-  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 18, fontWeight: "600" },
-  dailyMax: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  dailyFeels: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "600", marginTop: 1 },
+  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 17, fontWeight: "600" },
+  dailyMax: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  dailyFeels: { color: "rgba(255,255,255,0.85)", fontSize: 10, fontWeight: "600", marginTop: 0 },
   // DAILY TIMELINE BAR (24h)
   tickHeader: {
     flexDirection: "row",
