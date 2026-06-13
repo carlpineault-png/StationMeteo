@@ -762,26 +762,28 @@ export default function Index() {
                   ) : null}
                 </View>
 
-                {/* ALERT between hero and hourly (only when active) */}
-                {showAlert ? (
-                  <View style={styles.alertBar} testID="alert-bar">
-                    <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={fs(26)} color="#fff" />
-                    <View style={styles.flex}>
-                      <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>Alerte météo</Text>
-                      <Text style={[styles.alertBarText, { fontSize: fs(15) }]} numberOfLines={2}>{alerts[0].label}</Text>
+                {/* ALERT slot — always reserved between hero and hourly */}
+                <View style={[styles.alertSlot, { minHeight: fs(56) }]} testID="alert-slot">
+                  {showAlert ? (
+                    <View style={styles.alertBar} testID="alert-bar">
+                      <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={fs(26)} color="#fff" />
+                      <View style={styles.flex}>
+                        <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>Alerte météo</Text>
+                        <Text style={[styles.alertBarText, { fontSize: fs(15) }]} numberOfLines={2}>{alerts[0].label}</Text>
+                      </View>
+                      <TouchableOpacity
+                        testID="alert-dismiss-button"
+                        onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
+                        hitSlop={12}
+                        style={styles.alertBarClose}
+                      >
+                        <MaterialCommunityIcons name="close-circle" size={fs(26)} color="#fff" />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      testID="alert-dismiss-button"
-                      onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
-                      hitSlop={12}
-                      style={styles.alertBarClose}
-                    >
-                      <MaterialCommunityIcons name="close-circle" size={fs(26)} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
+                  ) : null}
+                </View>
 
-                {/* HOURLY under hero */}
+                {/* HOURLY under alert slot */}
                 <View style={styles.hourlyContainer}>
                   <ScrollView
                     horizontal
@@ -1017,7 +1019,7 @@ function tempBarWidth(min: number, max: number, daily: WeatherData["daily"]) {
 // ---------- Styles ----------
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#0F2027" },
-  darkOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
+  darkOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.18)" },
   safe: { flex: 1 },
   flex: { flex: 1 },
 
@@ -1144,7 +1146,7 @@ const styles = StyleSheet.create({
 
   // CLOCK + CURRENT combined hero card
   heroCard: {
-    backgroundColor: "rgba(0,0,0,0.62)",
+    backgroundColor: "rgba(0,0,0,0.48)",
     borderRadius: 22,
     paddingVertical: 16,
     paddingHorizontal: 22,
@@ -1223,7 +1225,7 @@ const styles = StyleSheet.create({
   // MAP (Windy)
   mapCard: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.62)",
+    backgroundColor: "rgba(0,0,0,0.48)",
     borderRadius: 22,
     overflow: "hidden",
     position: "relative",
@@ -1280,6 +1282,7 @@ const styles = StyleSheet.create({
   },
 
   // ALERT bar (replaces search bar when alert active)
+  alertSlot: { justifyContent: "center" },
   alertBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1376,7 +1379,7 @@ const styles = StyleSheet.create({
 
   // DAILY
   dailyList: {
-    backgroundColor: "rgba(0,0,0,0.72)",
+    backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 2,
