@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   topRow: { flex: 1, flexDirection: "row", gap: 12 },
-  topLeft: { flex: 1, gap: 10, overflow: "hidden", paddingBottom: 14 },
+  topLeft: { flex: 1, gap: 10, overflow: "hidden", paddingBottom: 29 },
   topLeftStack: { gap: 10 },
   topRight: { flex: 1.1, gap: 8 },
   bottomSection: { flexShrink: 0, minHeight: 290, gap: 4 },
