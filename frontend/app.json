@@ -48,7 +48,8 @@
         {
           "locationWhenInUsePermission": "Afficher la météo de votre position"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

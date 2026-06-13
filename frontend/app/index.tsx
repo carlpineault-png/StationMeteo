@@ -24,6 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { storage } from "@/src/utils/storage";
+import { detectLang, detectLocaleTag, detectUses24h, getT } from "@/src/i18n/translations";
 
 // ---------- Types ----------
 type Unit = "C" | "F";
@@ -171,10 +172,10 @@ function pad2(n: number) {
 }
 
 // Format precipitation: rain in mm, snow in cm. Returns null if dry.
-function formatPrecip(rainMm: number, snowCm: number): string | null {
+function formatPrecip(rainMm: number, snowCm: number, rainLabel = "Pluie", snowLabel = "Neige"): string | null {
   const parts: string[] = [];
-  if (snowCm > 0.05) parts.push(`Neige ${snowCm.toFixed(1).replace(".", ",")} cm`);
-  if (rainMm > 0.05) parts.push(`Pluie ${rainMm.toFixed(1).replace(".", ",")} mm`);
+  if (snowCm > 0.05) parts.push(`${snowLabel} ${snowCm.toFixed(1).replace(".", ",")} cm`);
+  if (rainMm > 0.05) parts.push(`${rainLabel} ${rainMm.toFixed(1).replace(".", ",")} mm`);
   return parts.length === 0 ? null : parts.join(" • ");
 }
 
@@ -367,6 +368,17 @@ export default function Index() {
   const s = Math.max(0.78, Math.min(1.0, height / 1024));
   const fs = (v: number) => Math.round(v * s);
 
+  // Localization (auto-detected from iPad regional settings)
+  const lang = useMemo(() => detectLang(), []);
+  const locale = useMemo(() => detectLocaleTag(), []);
+  const uses24h = useMemo(() => detectUses24h(), []);
+  const t = useMemo(() => getT(lang), [lang]);
+
+  const timeFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
+    [locale, uses24h],
+  );
+
   const [unit, setUnit] = useState<Unit>("C");
   const [place, setPlace] = useState<Place | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -552,8 +564,9 @@ export default function Index() {
 
   const currentInfo = useMemo(() => {
     if (!weather) return { label: "—", icon: "weather-cloudy" as const };
-    return infoFor(weather.current.weatherCode, weather.current.isDay);
-  }, [weather]);
+    const info = infoFor(weather.current.weatherCode, weather.current.isDay);
+    return { ...info, label: t.wmo[weather.current.weatherCode] ?? info.label };
+  }, [weather, t]);
 
   const placeLabel = useMemo(() => {
     if (!place) return "—";
@@ -714,14 +727,14 @@ export default function Index() {
                   {/* Row: time on left, date + city on right */}
                   <View style={styles.heroTopRow}>
                     <Text style={[styles.clockTime, { fontSize: fs(70), lineHeight: fs(76) }]} testID="clock-time-display">
-                      {pad2(now.getHours())}:{pad2(now.getMinutes())}
+                      {timeFormatter.format(now)}
                     </Text>
                     <View style={styles.heroDateBlock}>
                       <Text style={[styles.cityName, { fontSize: fs(22) }]} numberOfLines={1} testID="city-name">
                         {placeLabel}
                       </Text>
                       <Text style={[styles.clockDate, { fontSize: fs(20), lineHeight: fs(24) }]} testID="clock-date-display">
-                        {formatLongDate(now)}
+                        {t.formatLongDate(now, locale)}
                       </Text>
                     </View>
                   </View>
@@ -739,12 +752,12 @@ export default function Index() {
                             {fmtTemp(weather.current.temperature, unit)}
                           </Text>
                           <Text style={[styles.currentFeels, { fontSize: fs(18) }]} testID="current-feels-like">
-                            Ressenti {fmtTemp(weather.current.apparent, unit)}
+                            {t.feelsLike} {fmtTemp(weather.current.apparent, unit)}
                           </Text>
                         </View>
                         <Text style={[styles.conditionText, { fontSize: fs(22) }]}>{currentInfo.label}</Text>
                         <Text style={[styles.feelsLike, { fontSize: fs(15) }]}>
-                          Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
+                          {t.humidity} {Math.round(weather.current.humidity)}% • {t.wind} {Math.round(weather.current.windSpeed)} km/h
                         </Text>
                         {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
                           <View style={styles.precipBadge} testID="current-precip">
@@ -754,7 +767,7 @@ export default function Index() {
                               color="#fff"
                             />
                             <Text style={[styles.precipText, { fontSize: fs(15) }]}>
-                              {formatPrecip(weather.current.rain, weather.current.snowfall)}
+                              {formatPrecip(weather.current.rain, weather.current.snowfall, t.rainUnit, t.snowUnit)}
                             </Text>
                           </View>
                         ) : null}
@@ -769,7 +782,7 @@ export default function Index() {
                     <View style={styles.alertBar} testID="alert-bar">
                       <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={fs(26)} color="#fff" />
                       <View style={styles.flex}>
-                        <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>Alerte météo</Text>
+                        <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>{t.weatherAlert}</Text>
                         <Text style={[styles.alertBarText, { fontSize: fs(15) }]} numberOfLines={2}>{alerts[0].label}</Text>
                       </View>
                       <TouchableOpacity
@@ -806,7 +819,7 @@ export default function Index() {
                   >
                     {weather?.hourly.map((h, i) => {
                       const date = new Date(h.time);
-                      const label = i === 0 ? "Maintenant" : `${pad2(date.getHours())}h`;
+                      const label = i === 0 ? t.now : timeFormatter.format(date);
                       const info = infoFor(h.code, 1);
                       const tint = hourCardTint(h.precip, h.sunshine, h.code);
                       const showPrecip = h.precip >= 0.05;
@@ -820,7 +833,7 @@ export default function Index() {
                           <MaterialCommunityIcons name={info.icon} size={fs(34)} color="#fff" />
                           <Text style={[styles.hourTemp, { fontSize: fs(22) }]}>{fmtTemp(h.temp, unit)}</Text>
                           <Text style={[styles.hourFeels, { fontSize: fs(12) }]} testID={`hour-feels-${i}`}>
-                            ress. {fmtTemp(h.apparent, unit)}
+                            {t.feels} {fmtTemp(h.apparent, unit)}
                           </Text>
                           {showPrecip ? (
                             <Text style={[styles.hourPrecip, { fontSize: fs(12) }]} testID={`hour-precip-${i}`}>
@@ -895,7 +908,7 @@ export default function Index() {
                   </TouchableOpacity>
                   <View style={styles.mapTag} pointerEvents="none">
                     <MaterialCommunityIcons name="radar" size={16} color="#fff" />
-                    <Text style={styles.mapTagText}>Radar météo</Text>
+                    <Text style={styles.mapTagText}>{t.weatherRadar}</Text>
                   </View>
                 </View>
               </View>
@@ -921,10 +934,10 @@ export default function Index() {
 
                 {weather?.daily.map((d, i) => {
                   const date = new Date(`${d.date}T12:00:00`);
-                  const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR[date.getDay()];
-                  const dateLabel = `${date.getDate()} ${MONTHS_FR[date.getMonth()]}`;
+                  const dayName = i === 0 ? t.today : t.daysLong[date.getDay()];
+                  const dateLabel = t.formatShortDate(date, locale);
                   const info = infoFor(d.code, 1);
-                  const precipLabel = formatPrecip(d.rainSum, d.snowSum);
+                  const precipLabel = formatPrecip(d.rainSum, d.snowSum, t.rainUnit, t.snowUnit);
                   const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
                   return (
                     <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
@@ -943,7 +956,7 @@ export default function Index() {
                       <View style={styles.dailyTempCol}>
                         <Text style={[styles.dailyMin, { fontSize: fs(17) }]}>{fmtTemp(d.tMin, unit)}</Text>
                         <Text style={[styles.dailyFeels, { fontSize: fs(10) }]} testID={`day-feels-min-${i}`}>
-                          ress. {fmtTemp(d.aMin, unit)}
+                          {t.feels} {fmtTemp(d.aMin, unit)}
                         </Text>
                       </View>
                       <View style={styles.timelineWrap} testID={`day-timeline-${i}`}>
@@ -964,7 +977,7 @@ export default function Index() {
                       <View style={styles.dailyTempCol}>
                         <Text style={[styles.dailyMax, { fontSize: fs(17) }]}>{fmtTemp(d.tMax, unit)}</Text>
                         <Text style={[styles.dailyFeels, { fontSize: fs(10) }]} testID={`day-feels-max-${i}`}>
-                          ress. {fmtTemp(d.aMax, unit)}
+                          {t.feels} {fmtTemp(d.aMax, unit)}
                         </Text>
                       </View>
                     </View>
