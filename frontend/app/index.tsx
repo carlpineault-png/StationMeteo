@@ -188,18 +188,19 @@ async function geocodeCity(query: string): Promise<Place[]> {
   return (data.results ?? []) as Place[];
 }
 
-async function reverseGeocode(lat: number, lon: number): Promise<string> {
+async function reverseGeocode(lat: number, lon: number): Promise<{ name: string; country?: string; admin1?: string }> {
+  // Use expo-location's native reverse geocoding (Apple Maps on iOS, Google on Android)
   try {
-    const url = `${OM_GEOCODE}?latitude=${lat}&longitude=${lon}&count=1&language=fr&format=json`;
-    const res = await fetch(url);
-    if (!res.ok) return "Ma position";
-    const data = await res.json();
-    const r = data?.results?.[0];
-    if (!r) return "Ma position";
-    return r.name as string;
+    const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+    const r = results?.[0];
+    if (r) {
+      const name = r.city || r.subregion || r.district || r.name || "Ma position";
+      return { name, country: r.country ?? undefined, admin1: r.region ?? undefined };
+    }
   } catch {
-    return "Ma position";
+    // ignore and fall through
   }
+  return { name: "Ma position" };
 }
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
@@ -434,9 +435,11 @@ export default function Index() {
         }
         setLoading(true);
         const pos = await Location.getCurrentPositionAsync({});
-        const name = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+        const geo = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
         const p: Place = {
-          name,
+          name: geo.name,
+          country: geo.country,
+          admin1: geo.admin1,
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
         };
