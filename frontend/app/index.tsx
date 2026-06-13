@@ -344,8 +344,11 @@ const ALERT_ICON: Record<WAlert["kind"], keyof typeof MaterialCommunityIcons.gly
 
 // ---------- Main screen ----------
 export default function Index() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = width >= 900; // iPad landscape / large iPad
+  // Scale factor based on screen height — 1.0 for iPad 13" (1024px), down to 0.78 for smaller iPads
+  const s = Math.max(0.78, Math.min(1.0, height / 1024));
+  const fs = (v: number) => Math.round(v * s);
 
   const [unit, setUnit] = useState<Unit>("C");
   const [place, setPlace] = useState<Place | null>(null);
@@ -712,14 +715,14 @@ export default function Index() {
                 <View style={styles.heroCard} testID="hero-card">
                   {/* Row: time on left, date + city on right */}
                   <View style={styles.heroTopRow}>
-                    <Text style={styles.clockTime} testID="clock-time-display">
+                    <Text style={[styles.clockTime, { fontSize: fs(70), lineHeight: fs(76) }]} testID="clock-time-display">
                       {pad2(now.getHours())}:{pad2(now.getMinutes())}
                     </Text>
                     <View style={styles.heroDateBlock}>
-                      <Text style={styles.cityName} numberOfLines={1} testID="city-name">
+                      <Text style={[styles.cityName, { fontSize: fs(22) }]} numberOfLines={1} testID="city-name">
                         {placeLabel}
                       </Text>
-                      <Text style={styles.clockDate} testID="clock-date-display">
+                      <Text style={[styles.clockDate, { fontSize: fs(20), lineHeight: fs(24) }]} testID="clock-date-display">
                         {formatLongDate(now)}
                       </Text>
                     </View>
@@ -731,28 +734,28 @@ export default function Index() {
                     <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 24 }} />
                   ) : weather ? (
                     <View style={styles.heroWeatherRow}>
-                      <MaterialCommunityIcons name={currentInfo.icon} size={92} color="#fff" />
+                      <MaterialCommunityIcons name={currentInfo.icon} size={fs(92)} color="#fff" />
                       <View style={styles.flex}>
                         <View style={styles.tempLine}>
-                          <Text style={styles.currentTemp} testID="current-temperature">
+                          <Text style={[styles.currentTemp, { fontSize: fs(72), lineHeight: fs(78) }]} testID="current-temperature">
                             {fmtTemp(weather.current.temperature, unit)}
                           </Text>
-                          <Text style={styles.currentFeels} testID="current-feels-like">
+                          <Text style={[styles.currentFeels, { fontSize: fs(18) }]} testID="current-feels-like">
                             Ressenti {fmtTemp(weather.current.apparent, unit)}
                           </Text>
                         </View>
-                        <Text style={styles.conditionText}>{currentInfo.label}</Text>
-                        <Text style={styles.feelsLike}>
+                        <Text style={[styles.conditionText, { fontSize: fs(22) }]}>{currentInfo.label}</Text>
+                        <Text style={[styles.feelsLike, { fontSize: fs(15) }]}>
                           Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
                         </Text>
                         {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
                           <View style={styles.precipBadge} testID="current-precip">
                             <MaterialCommunityIcons
                               name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
-                              size={20}
+                              size={fs(20)}
                               color="#fff"
                             />
-                            <Text style={styles.precipText}>
+                            <Text style={[styles.precipText, { fontSize: fs(15) }]}>
                               {formatPrecip(weather.current.rain, weather.current.snowfall)}
                             </Text>
                           </View>
@@ -784,10 +787,10 @@ export default function Index() {
                       const info = infoFor(h.code, 1);
                       return (
                         <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
-                          <Text style={styles.hourLabel}>{label}</Text>
-                          <MaterialCommunityIcons name={info.icon} size={34} color="#fff" />
-                          <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
-                          <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
+                          <Text style={[styles.hourLabel, { fontSize: fs(15) }]}>{label}</Text>
+                          <MaterialCommunityIcons name={info.icon} size={fs(34)} color="#fff" />
+                          <Text style={[styles.hourTemp, { fontSize: fs(22) }]}>{fmtTemp(h.temp, unit)}</Text>
+                          <Text style={[styles.hourFeels, { fontSize: fs(12) }]} testID={`hour-feels-${i}`}>
                             ress. {fmtTemp(h.apparent, unit)}
                           </Text>
                         </View>
@@ -857,15 +860,15 @@ export default function Index() {
                     <MaterialCommunityIcons name="arrow-expand" size={22} color="#fff" />
                   </TouchableOpacity>
                   <View style={styles.mapTag} pointerEvents="none">
-                    <MaterialCommunityIcons name="weather-pouring" size={16} color="#fff" />
-                    <Text style={styles.mapTagText}>Pluie en temps réel</Text>
+                    <MaterialCommunityIcons name="weather-cloudy" size={16} color="#fff" />
+                    <Text style={styles.mapTagText}>Nuages en temps réel</Text>
                   </View>
                 </View>
               </View>
             </View>
 
             {/* BOTTOM — 7-day forecast full width */}
-            <View style={styles.bottomSection}>
+            <View style={[styles.bottomSection, { minHeight: Math.round(290 * s) }]}>
               <View style={styles.dailyList} testID="daily-forecast-list">
                 <View style={styles.tickHeader} pointerEvents="none">
                   <View style={styles.tickHeaderLeftSpacer} />
@@ -891,17 +894,17 @@ export default function Index() {
                   return (
                     <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
                       <View style={styles.dailyDayCol}>
-                        <Text style={styles.dailyDay}>{dayName}</Text>
+                        <Text style={[styles.dailyDay, { fontSize: fs(17) }]}>{dayName}</Text>
                         {precipLabel ? (
-                          <Text style={styles.dailyPrecip} testID={`day-precip-${i}`}>
+                          <Text style={[styles.dailyPrecip, { fontSize: fs(11) }]} testID={`day-precip-${i}`}>
                             {precipLabel}
                           </Text>
                         ) : null}
                       </View>
-                      <MaterialCommunityIcons name={info.icon} size={32} color="#fff" style={{ width: 38 }} />
+                      <MaterialCommunityIcons name={info.icon} size={fs(32)} color="#fff" style={{ width: fs(38) }} />
                       <View style={styles.dailyTempCol}>
-                        <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
-                        <Text style={styles.dailyFeels} testID={`day-feels-min-${i}`}>
+                        <Text style={[styles.dailyMin, { fontSize: fs(17) }]}>{fmtTemp(d.tMin, unit)}</Text>
+                        <Text style={[styles.dailyFeels, { fontSize: fs(10) }]} testID={`day-feels-min-${i}`}>
                           ress. {fmtTemp(d.aMin, unit)}
                         </Text>
                       </View>
@@ -921,8 +924,8 @@ export default function Index() {
                         </View>
                       </View>
                       <View style={styles.dailyTempCol}>
-                        <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
-                        <Text style={styles.dailyFeels} testID={`day-feels-max-${i}`}>
+                        <Text style={[styles.dailyMax, { fontSize: fs(17) }]}>{fmtTemp(d.tMax, unit)}</Text>
+                        <Text style={[styles.dailyFeels, { fontSize: fs(10) }]} testID={`day-feels-max-${i}`}>
                           ress. {fmtTemp(d.aMax, unit)}
                         </Text>
                       </View>
