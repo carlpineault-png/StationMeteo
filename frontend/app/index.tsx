@@ -711,30 +711,50 @@ export default function Index() {
                   </View>
                 ) : null}
 
-                <Text style={styles.sectionTitle}>Prochaines heures</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.hourlyRow}
-                  style={styles.hourlyScroll}
-                  testID="hourly-forecast-scroll"
-                >
-                  {weather?.hourly.map((h, i) => {
-                    const date = new Date(h.time);
-                    const label = i === 0 ? "Maintenant" : `${pad2(date.getHours())}h`;
-                    const info = infoFor(h.code, 1);
-                    return (
-                      <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
-                        <Text style={styles.hourLabel}>{label}</Text>
-                        <MaterialCommunityIcons name={info.icon} size={38} color="#fff" />
-                        <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
-                        <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
-                          ress. {fmtTemp(h.apparent, unit)}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
+                <View style={styles.hourlyTitleRow}>
+                  <Text style={styles.sectionTitle}>Prochaines heures</Text>
+                  <View style={styles.scrollHint} testID="hourly-scroll-hint">
+                    <Text style={styles.scrollHintText}>défiler</Text>
+                    <MaterialCommunityIcons name="gesture-swipe-horizontal" size={18} color="rgba(255,255,255,0.9)" />
+                    <MaterialCommunityIcons name="chevron-right" size={22} color="rgba(255,255,255,0.9)" />
+                  </View>
+                </View>
+                <View style={styles.hourlyContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.hourlyRow}
+                    style={styles.hourlyScroll}
+                    testID="hourly-forecast-scroll"
+                  >
+                    {weather?.hourly.map((h, i) => {
+                      const date = new Date(h.time);
+                      const label = i === 0 ? "Maintenant" : `${pad2(date.getHours())}h`;
+                      const info = infoFor(h.code, 1);
+                      return (
+                        <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
+                          <Text style={styles.hourLabel}>{label}</Text>
+                          <MaterialCommunityIcons name={info.icon} size={38} color="#fff" />
+                          <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
+                          <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
+                            ress. {fmtTemp(h.apparent, unit)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                  {/* Right-edge fade indicates more content scrolls in from the right */}
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.6)"]}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.hourlyFade}
+                  />
+                  <View style={styles.hourlyFadeChevron} pointerEvents="none">
+                    <MaterialCommunityIcons name="chevron-right" size={36} color="rgba(255,255,255,0.9)" />
+                  </View>
+                </View>
               </View>
             </View>
 
@@ -1046,8 +1066,48 @@ const styles = StyleSheet.create({
   },
 
   // HOURLY
+  hourlyTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  scrollHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  scrollHintText: {
+    color: "rgba(255,255,255,0.95)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  hourlyContainer: { position: "relative" },
   hourlyScroll: { flexGrow: 0 },
-  hourlyRow: { gap: 8, paddingRight: 16, alignItems: "stretch" },
+  hourlyRow: { gap: 8, paddingRight: 40, alignItems: "stretch" },
+  hourlyFade: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 56,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  hourlyFadeChevron: {
+    position: "absolute",
+    right: 4,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   hourCard: {
     width: 84,
     paddingVertical: 12,
