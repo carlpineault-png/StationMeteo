@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Afficher la météo de votre position"
+        "NSLocationWhenInUseUsageDescription": "Afficher la météo de votre position",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
