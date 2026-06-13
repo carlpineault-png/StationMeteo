@@ -50,7 +50,7 @@ type WeatherData = {
     snowfall: number; // cm
     precipitation: number; // mm (total)
   };
-  hourly: { time: string; temp: number; apparent: number; code: number }[];
+  hourly: { time: string; temp: number; apparent: number; code: number; precip: number; sunshine: number }[];
   // Full hourly arrays for 7 days, used by the day timeline bar
   hourlyAll: {
     time: string[];
@@ -229,6 +229,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
     temp: d.hourly.temperature_2m[sliceIdx + i],
     apparent: d.hourly.apparent_temperature?.[sliceIdx + i] ?? d.hourly.temperature_2m[sliceIdx + i],
     code: d.hourly.weather_code[sliceIdx + i],
+    precip: d.hourly.precipitation?.[sliceIdx + i] ?? 0,
+    sunshine: d.hourly.sunshine_duration?.[sliceIdx + i] ?? 0,
   }));
 
   const daily = (d.daily?.time ?? []).map((date: string, i: number) => ({
@@ -305,6 +307,21 @@ function segmentColor(s: HourSample): string {
   if (s.sunshine >= 1800) return "#FFC83D"; // mostly sunny in this hour
   if (s.sunshine >= 600) return "#FFE082"; // partly sunny
   return "rgba(255,255,255,0.18)"; // cloudy / night
+}
+
+// Background tint for hourly card (semi-transparent over the global background)
+function hourCardTint(precip: number, sunshine: number, code: number): string {
+  if (precip >= 0.05) {
+    // Blue tint — deeper for heavier rain
+    if (precip >= 2) return "rgba(25,118,210,0.78)";
+    if (precip >= 0.5) return "rgba(66,165,245,0.72)";
+    return "rgba(144,202,249,0.62)";
+  }
+  if (sunshine >= 1800) return "rgba(255,200,61,0.62)"; // sunny
+  if (sunshine >= 600) return "rgba(255,224,130,0.50)"; // partly sunny
+  // Cloudy / night : grayish
+  if (code === 3 || code === 45 || code === 48) return "rgba(120,130,145,0.65)"; // overcast/fog
+  return "rgba(95,105,120,0.65)"; // default cloudy/gray
 }
 
 // ---------- Alerts ----------
@@ -785,14 +802,25 @@ export default function Index() {
                       const date = new Date(h.time);
                       const label = i === 0 ? "Maintenant" : `${pad2(date.getHours())}h`;
                       const info = infoFor(h.code, 1);
+                      const tint = hourCardTint(h.precip, h.sunshine, h.code);
+                      const showPrecip = h.precip >= 0.05;
                       return (
-                        <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
+                        <View
+                          key={h.time}
+                          style={[styles.hourCard, { backgroundColor: tint }]}
+                          testID={`hour-item-${i}`}
+                        >
                           <Text style={[styles.hourLabel, { fontSize: fs(15) }]}>{label}</Text>
                           <MaterialCommunityIcons name={info.icon} size={fs(34)} color="#fff" />
                           <Text style={[styles.hourTemp, { fontSize: fs(22) }]}>{fmtTemp(h.temp, unit)}</Text>
                           <Text style={[styles.hourFeels, { fontSize: fs(12) }]} testID={`hour-feels-${i}`}>
                             ress. {fmtTemp(h.apparent, unit)}
                           </Text>
+                          {showPrecip ? (
+                            <Text style={[styles.hourPrecip, { fontSize: fs(12) }]} testID={`hour-precip-${i}`}>
+                              {h.precip.toFixed(1).replace(".", ",")} mm
+                            </Text>
+                          ) : null}
                         </View>
                       );
                     })}
@@ -1342,9 +1370,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  hourLabel: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  hourTemp: { color: "#fff", fontSize: 22, fontWeight: "700" },
-  hourFeels: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "600" },
+  hourLabel: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  hourTemp: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  hourFeels: { color: "rgba(255,255,255,0.92)", fontSize: 12, fontWeight: "600" },
+  hourPrecip: { color: "#fff", fontSize: 12, fontWeight: "800" },
 
   // DAILY
   dailyList: {
