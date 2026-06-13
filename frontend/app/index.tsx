@@ -9,6 +9,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 import { storage } from "@/src/utils/storage";
 
@@ -388,6 +390,9 @@ export default function Index() {
   const [hourlyCanLeft, setHourlyCanLeft] = useState(false);
   const [hourlyCanRight, setHourlyCanRight] = useState(false);
 
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [alertDismissedUntil, setAlertDismissedUntil] = useState<number>(0);
+
   const handleHourlyScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number }; layoutMeasurement: { width: number }; contentSize: { width: number } } }) => {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
     const x = contentOffset.x;
@@ -537,6 +542,34 @@ export default function Index() {
   }, [place]);
 
   const alerts = useMemo(() => (weather ? computeAlerts(weather.daily) : []), [weather]);
+  // Alert is visible if there are alerts and we are past the dismiss expiry timestamp
+  const showAlert = alerts.length > 0 && Date.now() >= alertDismissedUntil;
+
+  // Build the Windy embed URL centered on current location, layer = rain
+  const windyUrl = useMemo(() => {
+    if (!place) return null;
+    const lat = place.latitude.toFixed(3);
+    const lon = place.longitude.toFixed(3);
+    const params = new URLSearchParams({
+      lat,
+      lon,
+      zoom: "6",
+      overlay: "rain",
+      level: "surface",
+      menu: "",
+      message: "true",
+      marker: "true",
+      calendar: "now",
+      pressure: "",
+      type: "map",
+      location: "coordinates",
+      detail: "",
+      metricWind: "km/h",
+      metricTemp: "°C",
+      radarRange: "-1",
+    });
+    return `https://embed.windy.com/embed2.html?${params.toString()}`;
+  }, [place]);
 
   return (
     <View style={styles.root} testID="weather-screen">
@@ -553,56 +586,76 @@ export default function Index() {
           {/* HEADER */}
           <View style={styles.header}>
             <View style={styles.searchWrap}>
-              <View style={styles.searchBar}>
-                <MaterialCommunityIcons name="magnify" size={32} color="#fff" />
-                <TextInput
-                  testID="search-city-input"
-                  value={searchQuery}
-                  onChangeText={(t) => {
-                    setSearchQuery(t);
-                    setShowResults(true);
-                  }}
-                  onFocus={() => setShowResults(true)}
-                  placeholder="Rechercher une ville…"
-                  placeholderTextColor="rgba(255,255,255,0.7)"
-                  style={styles.searchInput}
-                  returnKeyType="search"
-                  autoCorrect={false}
-                />
-                {searching ? <ActivityIndicator color="#fff" /> : null}
-                {searchQuery.length > 0 ? (
+              {showAlert ? (
+                <View style={styles.alertBar} testID="alert-bar">
+                  <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={28} color="#fff" />
+                  <View style={styles.flex}>
+                    <Text style={styles.alertBarTitle}>Alerte météo</Text>
+                    <Text style={styles.alertBarText} numberOfLines={1}>{alerts[0].label}</Text>
+                  </View>
                   <TouchableOpacity
-                    testID="search-clear-button"
-                    onPress={() => {
-                      setSearchQuery("");
-                      setSearchResults([]);
-                    }}
+                    testID="alert-dismiss-button"
+                    onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
                     hitSlop={12}
+                    style={styles.alertBarClose}
                   >
-                    <MaterialCommunityIcons name="close-circle" size={30} color="rgba(255,255,255,0.85)" />
+                    <MaterialCommunityIcons name="close-circle" size={28} color="#fff" />
                   </TouchableOpacity>
-                ) : null}
-              </View>
-
-              {showResults && searchResults.length > 0 ? (
-                <View style={styles.resultsBox} testID="search-results">
-                  {searchResults.map((r, i) => (
-                    <TouchableOpacity
-                      key={`${r.name}-${r.latitude}-${r.longitude}-${i}`}
-                      style={styles.resultItem}
-                      onPress={() => pickPlace(r)}
-                      testID={`search-result-${i}`}
-                    >
-                      <MaterialCommunityIcons name="map-marker" size={26} color="#111" />
-                      <Text style={styles.resultText} numberOfLines={1}>
-                        {r.name}
-                        {r.admin1 ? `, ${r.admin1}` : ""}
-                        {r.country ? ` — ${r.country}` : ""}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
                 </View>
-              ) : null}
+              ) : (
+                <>
+                  <View style={styles.searchBar}>
+                    <MaterialCommunityIcons name="magnify" size={28} color="#fff" />
+                    <TextInput
+                      testID="search-city-input"
+                      value={searchQuery}
+                      onChangeText={(t) => {
+                        setSearchQuery(t);
+                        setShowResults(true);
+                      }}
+                      onFocus={() => setShowResults(true)}
+                      placeholder="Rechercher une ville…"
+                      placeholderTextColor="rgba(255,255,255,0.7)"
+                      style={styles.searchInput}
+                      returnKeyType="search"
+                      autoCorrect={false}
+                    />
+                    {searching ? <ActivityIndicator color="#fff" /> : null}
+                    {searchQuery.length > 0 ? (
+                      <TouchableOpacity
+                        testID="search-clear-button"
+                        onPress={() => {
+                          setSearchQuery("");
+                          setSearchResults([]);
+                        }}
+                        hitSlop={12}
+                      >
+                        <MaterialCommunityIcons name="close-circle" size={26} color="rgba(255,255,255,0.85)" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {showResults && searchResults.length > 0 ? (
+                    <View style={styles.resultsBox} testID="search-results">
+                      {searchResults.map((r, i) => (
+                        <TouchableOpacity
+                          key={`${r.name}-${r.latitude}-${r.longitude}-${i}`}
+                          style={styles.resultItem}
+                          onPress={() => pickPlace(r)}
+                          testID={`search-result-${i}`}
+                        >
+                          <MaterialCommunityIcons name="map-marker" size={26} color="#111" />
+                          <Text style={styles.resultText} numberOfLines={1}>
+                            {r.name}
+                            {r.admin1 ? `, ${r.admin1}` : ""}
+                            {r.country ? ` — ${r.country}` : ""}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : null}
+                </>
+              )}
             </View>
 
             <TouchableOpacity
@@ -652,30 +705,35 @@ export default function Index() {
               return false;
             }}
           >
-            {/* TOP ROW — clock + current (left) | alerts + hourly (right) */}
+            {/* TOP ROW — hero (clock+date+current) + hourly | windy map */}
             <View style={styles.topRow}>
-              {/* LEFT — clock + current */}
+              {/* LEFT — hero combined card + hourly */}
               <View style={styles.topLeft}>
-                <View style={styles.clockCard} testID="clock-card">
-                  <Text style={styles.clockTime} testID="clock-time-display">
-                    {pad2(now.getHours())}:{pad2(now.getMinutes())}
-                  </Text>
-                  <Text style={styles.clockDate} testID="clock-date-display">
-                    {formatLongDate(now)}
-                  </Text>
-                </View>
-
-                <View style={[styles.currentCard, styles.flex]} testID="current-weather-card">
-                  <Text style={styles.cityName} numberOfLines={1} testID="city-name">
-                    {placeLabel}
-                  </Text>
+                <View style={styles.heroCard} testID="hero-card">
+                  {/* Row: time on left, date + city on right */}
+                  <View style={styles.heroTopRow}>
+                    <Text style={styles.clockTime} testID="clock-time-display">
+                      {pad2(now.getHours())}:{pad2(now.getMinutes())}
+                    </Text>
+                    <View style={styles.heroDateBlock}>
+                      <Text style={styles.cityName} numberOfLines={1} testID="city-name">
+                        {placeLabel}
+                      </Text>
+                      <Text style={styles.clockDate} testID="clock-date-display">
+                        {formatLongDate(now)}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Divider */}
+                  <View style={styles.heroDivider} />
+                  {/* Bottom: weather icon + temp + condition + details */}
                   {loading && !weather ? (
                     <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 24 }} />
                   ) : weather ? (
-                    <>
-                      <View style={styles.currentRow}>
-                        <MaterialCommunityIcons name={currentInfo.icon} size={110} color="#fff" />
-                        <View style={styles.tempBlock}>
+                    <View style={styles.heroWeatherRow}>
+                      <MaterialCommunityIcons name={currentInfo.icon} size={92} color="#fff" />
+                      <View style={styles.flex}>
+                        <View style={styles.tempLine}>
                           <Text style={styles.currentTemp} testID="current-temperature">
                             {fmtTemp(weather.current.temperature, unit)}
                           </Text>
@@ -683,45 +741,28 @@ export default function Index() {
                             Ressenti {fmtTemp(weather.current.apparent, unit)}
                           </Text>
                         </View>
+                        <Text style={styles.conditionText}>{currentInfo.label}</Text>
+                        <Text style={styles.feelsLike}>
+                          Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
+                        </Text>
+                        {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
+                          <View style={styles.precipBadge} testID="current-precip">
+                            <MaterialCommunityIcons
+                              name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
+                              size={20}
+                              color="#fff"
+                            />
+                            <Text style={styles.precipText}>
+                              {formatPrecip(weather.current.rain, weather.current.snowfall)}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
-                      <Text style={styles.conditionText}>{currentInfo.label}</Text>
-                      <Text style={styles.feelsLike}>
-                        Humidité {Math.round(weather.current.humidity)}% • Vent {Math.round(weather.current.windSpeed)} km/h
-                      </Text>
-                      {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
-                        <View style={styles.precipBadge} testID="current-precip">
-                          <MaterialCommunityIcons
-                            name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
-                            size={22}
-                            color="#fff"
-                          />
-                          <Text style={styles.precipText}>
-                            {formatPrecip(weather.current.rain, weather.current.snowfall)}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </>
+                    </View>
                   ) : null}
                 </View>
-              </View>
 
-              {/* RIGHT — alerts + hourly */}
-              <View style={styles.topRight}>
-                {alerts.length > 0 ? (
-                  <View style={styles.alertSection} testID="alerts-section">
-                    <View style={styles.alertHeader}>
-                      <MaterialCommunityIcons name="alert-decagram" size={22} color="#FFD66B" />
-                      <Text style={styles.alertHeaderText}>Alertes météo</Text>
-                    </View>
-                    {alerts.slice(0, 2).map((a, i) => (
-                      <View key={`${a.day}-${a.kind}-${i}`} style={styles.alertItem} testID={`alert-${i}`}>
-                        <MaterialCommunityIcons name={ALERT_ICON[a.kind]} size={24} color="#fff" />
-                        <Text style={styles.alertText} numberOfLines={2}>{a.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-
+                {/* HOURLY under hero */}
                 <View style={styles.hourlyTitleRow}>
                   <Text style={styles.sectionTitle}>Prochaines heures</Text>
                 </View>
@@ -732,11 +773,8 @@ export default function Index() {
                     contentContainerStyle={styles.hourlyRow}
                     style={styles.hourlyScroll}
                     onScroll={handleHourlyScroll}
-                    onContentSizeChange={(w) =>
-                      setHourlyCanRight(w > 0)
-                    }
+                    onContentSizeChange={(w) => setHourlyCanRight(w > 0)}
                     onLayout={(ev) => {
-                      // Ensure right chevron appears on first paint if content overflows
                       const layoutW = ev.nativeEvent.layout.width;
                       if (layoutW > 0) setHourlyCanRight(true);
                     }}
@@ -750,7 +788,7 @@ export default function Index() {
                       return (
                         <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
                           <Text style={styles.hourLabel}>{label}</Text>
-                          <MaterialCommunityIcons name={info.icon} size={38} color="#fff" />
+                          <MaterialCommunityIcons name={info.icon} size={34} color="#fff" />
                           <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
                           <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
                             ress. {fmtTemp(h.apparent, unit)}
@@ -787,6 +825,44 @@ export default function Index() {
                       </View>
                     </>
                   ) : null}
+                </View>
+              </View>
+
+              {/* RIGHT — Windy rain map */}
+              <View style={styles.topRight}>
+                <View style={styles.mapCard} testID="windy-map-card">
+                  {windyUrl ? (
+                    <WebView
+                      source={{ uri: windyUrl }}
+                      style={styles.mapWebView}
+                      javaScriptEnabled
+                      domStorageEnabled
+                      allowsInlineMediaPlayback
+                      originWhitelist={["*"]}
+                      startInLoadingState
+                      renderLoading={() => (
+                        <View style={styles.mapLoading}>
+                          <ActivityIndicator color="#fff" size="large" />
+                        </View>
+                      )}
+                    />
+                  ) : (
+                    <View style={styles.mapLoading}>
+                      <ActivityIndicator color="#fff" size="large" />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    testID="map-expand-button"
+                    style={styles.mapExpandBtn}
+                    onPress={() => setMapExpanded(true)}
+                    hitSlop={8}
+                  >
+                    <MaterialCommunityIcons name="arrow-expand" size={22} color="#fff" />
+                  </TouchableOpacity>
+                  <View style={styles.mapTag} pointerEvents="none">
+                    <MaterialCommunityIcons name="weather-pouring" size={16} color="#fff" />
+                    <Text style={styles.mapTagText}>Pluie en temps réel</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -862,6 +938,36 @@ export default function Index() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* FULLSCREEN MAP MODAL */}
+      <Modal
+        visible={mapExpanded}
+        animationType="fade"
+        onRequestClose={() => setMapExpanded(false)}
+        statusBarTranslucent
+      >
+        <View style={styles.modalRoot} testID="map-fullscreen-modal">
+          {windyUrl ? (
+            <WebView
+              source={{ uri: windyUrl }}
+              style={styles.flex}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsInlineMediaPlayback
+              originWhitelist={["*"]}
+            />
+          ) : null}
+          <SafeAreaView style={styles.modalCloseWrap} edges={["top", "right"]} pointerEvents="box-none">
+            <TouchableOpacity
+              testID="map-close-button"
+              onPress={() => setMapExpanded(false)}
+              style={styles.modalCloseBtn}
+            >
+              <MaterialCommunityIcons name="close" size={28} color="#fff" />
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -993,12 +1099,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingTop: 4,
     flexDirection: "column",
-    gap: 12,
+    gap: 10,
   },
-  topRow: { flex: 1, flexDirection: "row", gap: 12 },
-  topLeft: { flex: 1.05, gap: 12 },
-  topRight: { flex: 1, gap: 8 },
-  bottomSection: { flexShrink: 0 },
+  topRow: { flex: 1.5, flexDirection: "row", gap: 12 },
+  topLeft: { flex: 1, gap: 10 },
+  topRight: { flex: 1.1, gap: 8 },
+  bottomSection: { flex: 1, gap: 4 },
 
   // MAIN LAYOUT
   mainArea: { flexDirection: "column", gap: 24, marginTop: 12 },
@@ -1010,71 +1116,174 @@ const styles = StyleSheet.create({
   forecastCol: { gap: 12 },
   forecastColWide: { flex: 5 },
 
-  // CLOCK — time left, date right (bigger, with year)
-  clockCard: {
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+  // CLOCK + CURRENT combined hero card
+  heroCard: {
+    backgroundColor: "rgba(0,0,0,0.62)",
+    borderRadius: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 22,
+    gap: 10,
+  },
+  heroTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 16,
   },
+  heroDateBlock: { alignItems: "flex-end", flexShrink: 1 },
+  heroDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  heroWeatherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  tempLine: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 14,
+  },
   clockTime: {
     color: "#fff",
-    fontSize: 80,
+    fontSize: 70,
     fontWeight: "900",
     letterSpacing: -3,
-    lineHeight: 88,
+    lineHeight: 76,
     fontVariant: ["tabular-nums"],
   },
   clockDate: {
     color: "#fff",
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: "700",
     textAlign: "right",
-    flexShrink: 1,
     textTransform: "capitalize",
-    lineHeight: 32,
-  },
-
-  // CURRENT
-  currentCard: {
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    lineHeight: 24,
   },
   cityName: {
     color: "#fff",
-    fontSize: 32,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "right",
   },
-  currentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  tempBlock: { alignItems: "flex-end" },
   currentTemp: {
     color: "#fff",
-    fontSize: 110,
+    fontSize: 72,
     fontWeight: "800",
-    letterSpacing: -3,
-    lineHeight: 118,
+    letterSpacing: -2,
+    lineHeight: 78,
   },
   currentFeels: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 22,
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 18,
     fontWeight: "700",
-    marginTop: -6,
   },
-  conditionText: { color: "#fff", fontSize: 24, fontWeight: "700", marginTop: 2 },
-  feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 16, fontWeight: "500", marginTop: 4 },
+  conditionText: { color: "#fff", fontSize: 22, fontWeight: "700", marginTop: 2 },
+  feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 15, fontWeight: "500", marginTop: 2 },
   precipBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(52,152,219,0.7)",
+  },
+  precipText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+
+  // MAP (Windy)
+  mapCard: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.62)",
+    borderRadius: 22,
+    overflow: "hidden",
+    position: "relative",
+    minHeight: 200,
+  },
+  mapWebView: { flex: 1, backgroundColor: "transparent" },
+  mapLoading: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  mapExpandBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+  mapTag: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  mapTagText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+
+  // MAP fullscreen modal
+  modalRoot: { flex: 1, backgroundColor: "#000" },
+  modalCloseWrap: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+  },
+  modalCloseBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 16,
+  },
+
+  // ALERT bar (replaces search bar when alert active)
+  alertBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(180,30,30,0.92)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 12,
+    minHeight: 48,
+  },
+  alertBarTitle: {
+    color: "#FFD66B",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  alertBarText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  alertBarClose: { padding: 4 },
+
+  // KEEP OLD STYLES for backwards-compat reference (unused now)
+  clockCard: { display: "none" },
+  currentCard: { display: "none" },
+  currentRow: { display: "none" },
+  tempBlock: { display: "none" },
+  precipBadgeOld: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
@@ -1085,7 +1294,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: "rgba(52,152,219,0.65)",
   },
-  precipText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  precipTextOld: { color: "#fff", fontSize: 18, fontWeight: "700" },
 
   // SECTION
   sectionTitle: {
@@ -1141,25 +1350,25 @@ const styles = StyleSheet.create({
   // DAILY
   dailyList: {
     backgroundColor: "rgba(0,0,0,0.72)",
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    borderRadius: 18,
+    paddingHorizontal: 14,
     paddingVertical: 2,
   },
   dailyRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 7,
+    paddingVertical: 5,
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
-  dailyDayCol: { width: 130 },
-  dailyDay: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  dailyPrecip: { color: "#9BD0FF", fontSize: 13, fontWeight: "700", marginTop: 1 },
-  dailyTempCol: { width: 64, alignItems: "flex-end" },
-  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: "600" },
-  dailyMax: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  dailyFeels: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "600", marginTop: 1 },
+  dailyDayCol: { width: 120 },
+  dailyDay: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  dailyPrecip: { color: "#9BD0FF", fontSize: 12, fontWeight: "700", marginTop: 1 },
+  dailyTempCol: { width: 60, alignItems: "flex-end" },
+  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 18, fontWeight: "600" },
+  dailyMax: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  dailyFeels: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "600", marginTop: 1 },
   // DAILY TIMELINE BAR (24h)
   tickHeader: {
     flexDirection: "row",
@@ -1167,8 +1376,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 12,
   },
-  tickHeaderLeftSpacer: { width: 130 + 42 + 64 + 30 }, // dayCol + icon + tempCol + gaps
-  tickHeaderRightSpacer: { width: 64 + 8 },
+  tickHeaderLeftSpacer: { width: 120 + 38 + 60 + 30 },
+  tickHeaderRightSpacer: { width: 60 + 8 },
   tickHeaderTrack: {
     flex: 1,
     height: 18,
