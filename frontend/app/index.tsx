@@ -629,18 +629,19 @@ export default function Index() {
           ) : null}
 
           {/* BODY */}
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={() => {
-              setShowResults(false);
+          {/* MAIN — no scroll, fills the screen */}
+          <View
+            style={styles.body}
+            onStartShouldSetResponder={() => {
+              if (showResults) setShowResults(false);
               Keyboard.dismiss();
+              return false;
             }}
           >
-            <View style={[styles.mainArea, isWide && styles.mainAreaWide]}>
-              {/* LEFT / TOP — clock & current */}
-              <View style={[styles.heroCol, isWide && styles.heroColWide]}>
+            {/* TOP ROW — clock + current (left) | alerts + hourly (right) */}
+            <View style={styles.topRow}>
+              {/* LEFT — clock + current */}
+              <View style={styles.topLeft}>
                 <View style={styles.clockCard} testID="clock-card">
                   <Text style={styles.clockTime} testID="clock-time-display">
                     {pad2(now.getHours())}:{pad2(now.getMinutes())}
@@ -650,16 +651,16 @@ export default function Index() {
                   </Text>
                 </View>
 
-                <View style={styles.currentCard} testID="current-weather-card">
+                <View style={[styles.currentCard, styles.flex]} testID="current-weather-card">
                   <Text style={styles.cityName} numberOfLines={1} testID="city-name">
                     {placeLabel}
                   </Text>
                   {loading && !weather ? (
-                    <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 40 }} />
+                    <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 24 }} />
                   ) : weather ? (
                     <>
                       <View style={styles.currentRow}>
-                        <MaterialCommunityIcons name={currentInfo.icon} size={140} color="#fff" />
+                        <MaterialCommunityIcons name={currentInfo.icon} size={110} color="#fff" />
                         <View style={styles.tempBlock}>
                           <Text style={styles.currentTemp} testID="current-temperature">
                             {fmtTemp(weather.current.temperature, unit)}
@@ -677,7 +678,7 @@ export default function Index() {
                         <View style={styles.precipBadge} testID="current-precip">
                           <MaterialCommunityIcons
                             name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
-                            size={26}
+                            size={22}
                             color="#fff"
                           />
                           <Text style={styles.precipText}>
@@ -690,17 +691,17 @@ export default function Index() {
                 </View>
               </View>
 
-              {/* RIGHT / BOTTOM — forecasts */}
-              <View style={[styles.forecastCol, isWide && styles.forecastColWide]}>
+              {/* RIGHT — alerts + hourly */}
+              <View style={styles.topRight}>
                 {alerts.length > 0 ? (
                   <View style={styles.alertSection} testID="alerts-section">
                     <View style={styles.alertHeader}>
-                      <MaterialCommunityIcons name="alert-decagram" size={26} color="#FFD66B" />
+                      <MaterialCommunityIcons name="alert-decagram" size={22} color="#FFD66B" />
                       <Text style={styles.alertHeaderText}>Alertes météo</Text>
                     </View>
-                    {alerts.map((a, i) => (
+                    {alerts.slice(0, 2).map((a, i) => (
                       <View key={`${a.day}-${a.kind}-${i}`} style={styles.alertItem} testID={`alert-${i}`}>
-                        <MaterialCommunityIcons name={ALERT_ICON[a.kind]} size={28} color="#fff" />
+                        <MaterialCommunityIcons name={ALERT_ICON[a.kind]} size={24} color="#fff" />
                         <Text style={styles.alertText} numberOfLines={2}>{a.label}</Text>
                       </View>
                     ))}
@@ -712,6 +713,7 @@ export default function Index() {
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.hourlyRow}
+                  style={styles.hourlyScroll}
                   testID="hourly-forecast-scroll"
                 >
                   {weather?.hourly.map((h, i) => {
@@ -721,7 +723,7 @@ export default function Index() {
                     return (
                       <View key={h.time} style={styles.hourCard} testID={`hour-item-${i}`}>
                         <Text style={styles.hourLabel}>{label}</Text>
-                        <MaterialCommunityIcons name={info.icon} size={44} color="#fff" />
+                        <MaterialCommunityIcons name={info.icon} size={38} color="#fff" />
                         <Text style={styles.hourTemp}>{fmtTemp(h.temp, unit)}</Text>
                         <Text style={styles.hourFeels} testID={`hour-feels-${i}`}>
                           ress. {fmtTemp(h.apparent, unit)}
@@ -730,78 +732,78 @@ export default function Index() {
                     );
                   })}
                 </ScrollView>
-
-                <Text style={[styles.sectionTitle, { marginTop: 28 }]}>7 prochains jours</Text>
-                <View style={styles.dailyList} testID="daily-forecast-list">
-                  {/* Hour ticks shared header */}
-                  <View style={styles.tickHeader} pointerEvents="none">
-                    {/* Spacer aligns ticks above the timeline column (after day/icon/min) */}
-                    <View style={styles.tickHeaderLeftSpacer} />
-                    <View style={styles.tickHeaderTrack}>
-                      {[6, 12, 18, 24].map((h) => (
-                        <Text
-                          key={h}
-                          style={[styles.tickLabel, { left: `${(h / 24) * 100}%` }]}
-                        >
-                          {h}h
-                        </Text>
-                      ))}
-                    </View>
-                    <View style={styles.tickHeaderRightSpacer} />
-                  </View>
-
-                  {weather?.daily.map((d, i) => {
-                    const date = new Date(`${d.date}T12:00:00`);
-                    const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR_SHORT[date.getDay()];
-                    const info = infoFor(d.code, 1);
-                    const precipLabel = formatPrecip(d.rainSum, d.snowSum);
-                    const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
-                    return (
-                      <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
-                        <View style={styles.dailyDayCol}>
-                          <Text style={styles.dailyDay}>{dayName}</Text>
-                          {precipLabel ? (
-                            <Text style={styles.dailyPrecip} testID={`day-precip-${i}`}>
-                              {precipLabel}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <MaterialCommunityIcons name={info.icon} size={44} color="#fff" style={{ width: 50 }} />
-                        <View style={styles.dailyTempCol}>
-                          <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
-                          <Text style={styles.dailyFeels} testID={`day-feels-min-${i}`}>
-                            ress. {fmtTemp(d.aMin, unit)}
-                          </Text>
-                        </View>
-                        <View style={styles.timelineWrap} testID={`day-timeline-${i}`}>
-                          <View style={styles.timelineTrack}>
-                            {hours.map((s) => (
-                              <View
-                                key={s.hour}
-                                style={[styles.timelineSegment, { backgroundColor: segmentColor(s) }]}
-                              />
-                            ))}
-                          </View>
-                          {/* Vertical grid lines at quarters */}
-                          <View style={styles.timelineGrid} pointerEvents="none">
-                            {[6, 12, 18].map((h) => (
-                              <View key={h} style={[styles.timelineGridLine, { left: `${(h / 24) * 100}%` }]} />
-                            ))}
-                          </View>
-                        </View>
-                        <View style={styles.dailyTempCol}>
-                          <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
-                          <Text style={styles.dailyFeels} testID={`day-feels-max-${i}`}>
-                            ress. {fmtTemp(d.aMax, unit)}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
               </View>
             </View>
-          </ScrollView>
+
+            {/* BOTTOM — 7-day forecast full width */}
+            <View style={styles.bottomSection}>
+              <Text style={styles.sectionTitle}>7 prochains jours</Text>
+              <View style={styles.dailyList} testID="daily-forecast-list">
+                <View style={styles.tickHeader} pointerEvents="none">
+                  <View style={styles.tickHeaderLeftSpacer} />
+                  <View style={styles.tickHeaderTrack}>
+                    {[6, 12, 18, 24].map((h) => (
+                      <Text
+                        key={h}
+                        style={[styles.tickLabel, { left: `${(h / 24) * 100}%` }]}
+                      >
+                        {h}h
+                      </Text>
+                    ))}
+                  </View>
+                  <View style={styles.tickHeaderRightSpacer} />
+                </View>
+
+                {weather?.daily.map((d, i) => {
+                  const date = new Date(`${d.date}T12:00:00`);
+                  const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR_SHORT[date.getDay()];
+                  const info = infoFor(d.code, 1);
+                  const precipLabel = formatPrecip(d.rainSum, d.snowSum);
+                  const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
+                  return (
+                    <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
+                      <View style={styles.dailyDayCol}>
+                        <Text style={styles.dailyDay}>{dayName}</Text>
+                        {precipLabel ? (
+                          <Text style={styles.dailyPrecip} testID={`day-precip-${i}`}>
+                            {precipLabel}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <MaterialCommunityIcons name={info.icon} size={36} color="#fff" style={{ width: 42 }} />
+                      <View style={styles.dailyTempCol}>
+                        <Text style={styles.dailyMin}>{fmtTemp(d.tMin, unit)}</Text>
+                        <Text style={styles.dailyFeels} testID={`day-feels-min-${i}`}>
+                          ress. {fmtTemp(d.aMin, unit)}
+                        </Text>
+                      </View>
+                      <View style={styles.timelineWrap} testID={`day-timeline-${i}`}>
+                        <View style={styles.timelineTrack}>
+                          {hours.map((s) => (
+                            <View
+                              key={s.hour}
+                              style={[styles.timelineSegment, { backgroundColor: segmentColor(s) }]}
+                            />
+                          ))}
+                        </View>
+                        <View style={styles.timelineGrid} pointerEvents="none">
+                          {[6, 12, 18].map((h) => (
+                            <View key={h} style={[styles.timelineGridLine, { left: `${(h / 24) * 100}%` }]} />
+                          ))}
+                        </View>
+                      </View>
+                      <View style={styles.dailyTempCol}>
+                        <Text style={styles.dailyMax}>{fmtTemp(d.tMax, unit)}</Text>
+                        <Text style={styles.dailyFeels} testID={`day-feels-max-${i}`}>
+                          ress. {fmtTemp(d.aMax, unit)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -835,38 +837,38 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 6,
+    gap: 12,
     zIndex: 10,
   },
   searchWrap: { flex: 1, position: "relative" },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    minHeight: 64,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
     color: "#fff",
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: "500",
     paddingVertical: 0,
   },
   resultsBox: {
     position: "absolute",
-    top: 72,
+    top: 56,
     left: 0,
     right: 0,
     backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 8,
+    borderRadius: 16,
+    paddingVertical: 6,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -877,39 +879,39 @@ const styles = StyleSheet.create({
   resultItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    minHeight: 48,
   },
-  resultText: { fontSize: 22, color: "#111", flex: 1, fontWeight: "500" },
+  resultText: { fontSize: 18, color: "#111", flex: 1, fontWeight: "500" },
 
   iconBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
   },
 
   unitToggle: {
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 32,
-    padding: 4,
-    minHeight: 64,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 24,
+    padding: 3,
+    minHeight: 48,
     alignItems: "center",
   },
   unitChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 28,
-    minWidth: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 52,
     alignItems: "center",
   },
   unitChipActive: { backgroundColor: "#fff" },
-  unitText: { fontSize: 26, color: "#fff", fontWeight: "700" },
+  unitText: { fontSize: 20, color: "#fff", fontWeight: "700" },
   unitTextActive: { color: "#111" },
 
   errorBox: {
@@ -928,6 +930,20 @@ const styles = StyleSheet.create({
 
   scrollContent: { paddingHorizontal: 24, paddingBottom: 48 },
 
+  // STATION LAYOUT — fills viewport, no scroll
+  body: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 4,
+    flexDirection: "column",
+    gap: 12,
+  },
+  topRow: { flex: 1, flexDirection: "row", gap: 12 },
+  topLeft: { flex: 1.05, gap: 12 },
+  topRight: { flex: 1, gap: 8 },
+  bottomSection: { flexShrink: 0 },
+
   // MAIN LAYOUT
   mainArea: { flexDirection: "column", gap: 24, marginTop: 12 },
   mainAreaWide: { flexDirection: "row", alignItems: "flex-start" },
@@ -940,10 +956,10 @@ const styles = StyleSheet.create({
 
   // CLOCK — time left, date right (bigger, with year)
   clockCard: {
-    backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: 28,
-    paddingVertical: 28,
-    paddingHorizontal: 32,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -951,34 +967,34 @@ const styles = StyleSheet.create({
   },
   clockTime: {
     color: "#fff",
-    fontSize: 110,
+    fontSize: 80,
     fontWeight: "900",
-    letterSpacing: -4,
-    lineHeight: 118,
+    letterSpacing: -3,
+    lineHeight: 88,
     fontVariant: ["tabular-nums"],
   },
   clockDate: {
     color: "#fff",
-    fontSize: 38,
+    fontSize: 26,
     fontWeight: "700",
     textAlign: "right",
     flexShrink: 1,
     textTransform: "capitalize",
-    lineHeight: 44,
+    lineHeight: 32,
   },
 
   // CURRENT
   currentCard: {
-    backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: 28,
-    paddingVertical: 24,
-    paddingHorizontal: 28,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 24,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
   },
   cityName: {
     color: "#fff",
-    fontSize: 44,
+    fontSize: 32,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   currentRow: {
     flexDirection: "row",
@@ -989,80 +1005,81 @@ const styles = StyleSheet.create({
   tempBlock: { alignItems: "flex-end" },
   currentTemp: {
     color: "#fff",
-    fontSize: 150,
+    fontSize: 110,
     fontWeight: "800",
-    letterSpacing: -4,
-    lineHeight: 158,
+    letterSpacing: -3,
+    lineHeight: 118,
   },
   currentFeels: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 26,
-    fontWeight: "600",
-    marginTop: -8,
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 22,
+    fontWeight: "700",
+    marginTop: -6,
   },
-  conditionText: { color: "#fff", fontSize: 32, fontWeight: "600", marginTop: 4 },
-  feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "500", marginTop: 8 },
+  conditionText: { color: "#fff", fontSize: 24, fontWeight: "700", marginTop: 2 },
+  feelsLike: { color: "rgba(255,255,255,0.85)", fontSize: 16, fontWeight: "500", marginTop: 4 },
   precipBadge: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    gap: 10,
-    marginTop: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-    backgroundColor: "rgba(52,152,219,0.55)",
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "rgba(52,152,219,0.65)",
   },
-  precipText: { color: "#fff", fontSize: 22, fontWeight: "700" },
+  precipText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 
   // SECTION
   sectionTitle: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 2,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 1.5,
     textTransform: "uppercase",
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: 6,
+    marginTop: 2,
   },
 
   // HOURLY
-  hourlyRow: { gap: 12, paddingRight: 24 },
+  hourlyScroll: { flexGrow: 0 },
+  hourlyRow: { gap: 8, paddingRight: 16, alignItems: "stretch" },
   hourCard: {
-    width: 110,
-    paddingVertical: 16,
-    paddingHorizontal: 6,
-    borderRadius: 24,
+    width: 84,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 18,
     backgroundColor: "rgba(0,0,0,0.72)",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
   },
-  hourLabel: { color: "#fff", fontSize: 20, fontWeight: "600" },
-  hourTemp: { color: "#fff", fontSize: 28, fontWeight: "700" },
-  hourFeels: { color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: "600" },
+  hourLabel: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  hourTemp: { color: "#fff", fontSize: 22, fontWeight: "700" },
+  hourFeels: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "600" },
 
   // DAILY
   dailyList: {
     backgroundColor: "rgba(0,0,0,0.72)",
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 4,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
   },
   dailyRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    gap: 12,
+    paddingVertical: 7,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
-  dailyDayCol: { width: 150 },
-  dailyDay: { color: "#fff", fontSize: 24, fontWeight: "700" },
-  dailyPrecip: { color: "#9BD0FF", fontSize: 16, fontWeight: "700", marginTop: 2 },
-  dailyTempCol: { width: 72, alignItems: "flex-end" },
-  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 24, fontWeight: "600" },
-  dailyMax: { color: "#fff", fontSize: 24, fontWeight: "700" },
-  dailyFeels: { color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: "600", marginTop: 2 },
+  dailyDayCol: { width: 130 },
+  dailyDay: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  dailyPrecip: { color: "#9BD0FF", fontSize: 13, fontWeight: "700", marginTop: 1 },
+  dailyTempCol: { width: 64, alignItems: "flex-end" },
+  dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: "600" },
+  dailyMax: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  dailyFeels: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "600", marginTop: 1 },
   // DAILY TIMELINE BAR (24h)
   tickHeader: {
     flexDirection: "row",
@@ -1070,8 +1087,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 12,
   },
-  tickHeaderLeftSpacer: { width: 150 + 50 + 72 + 24 }, // dayCol + icon + tempCol + gaps
-  tickHeaderRightSpacer: { width: 72 + 8 }, // tempCol + half gap
+  tickHeaderLeftSpacer: { width: 130 + 42 + 64 + 30 }, // dayCol + icon + tempCol + gaps
+  tickHeaderRightSpacer: { width: 64 + 8 },
   tickHeaderTrack: {
     flex: 1,
     height: 18,
@@ -1119,34 +1136,33 @@ const styles = StyleSheet.create({
 
   // ALERTS
   alertSection: {
-    backgroundColor: "rgba(140,30,30,0.78)",
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 12,
-    gap: 8,
+    backgroundColor: "rgba(140,30,30,0.85)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 4,
   },
   alertHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   alertHeaderText: {
     color: "#FFD66B",
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "800",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   alertItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 6,
+    gap: 10,
+    paddingVertical: 2,
   },
   alertText: {
     color: "#fff",
-    fontSize: 19,
+    fontSize: 15,
     fontWeight: "600",
     flex: 1,
   },
