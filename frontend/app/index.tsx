@@ -629,7 +629,7 @@ export default function Index() {
                     setShowResults(true);
                   }}
                   onFocus={() => setShowResults(true)}
-                  placeholder="Rechercher une ville…"
+                  placeholder={t.searchPlaceholder}
                   placeholderTextColor="rgba(255,255,255,0.7)"
                   style={styles.searchInput}
                   returnKeyType="search"
@@ -669,6 +669,11 @@ export default function Index() {
                   ))}
                 </View>
               ) : null}
+            </View>
+
+            <View style={styles.activeCity} testID="header-active-city">
+              <MaterialCommunityIcons name="map-marker" size={22} color="#fff" />
+              <Text style={styles.activeCityText} numberOfLines={1}>{placeLabel}</Text>
             </View>
 
             <TouchableOpacity
@@ -730,10 +735,7 @@ export default function Index() {
                       {timeFormatter.format(now)}
                     </Text>
                     <View style={styles.heroDateBlock}>
-                      <Text style={[styles.cityName, { fontSize: fs(22) }]} numberOfLines={1} testID="city-name">
-                        {placeLabel}
-                      </Text>
-                      <Text style={[styles.clockDate, { fontSize: fs(20), lineHeight: fs(24) }]} testID="clock-date-display">
+                      <Text style={[styles.clockDate, { fontSize: fs(28), lineHeight: fs(34) }]} testID="clock-date-display">
                         {t.formatLongDate(now, locale)}
                       </Text>
                     </View>
@@ -1055,7 +1057,19 @@ const styles = StyleSheet.create({
     gap: 12,
     zIndex: 10,
   },
-  searchWrap: { flex: 1, position: "relative" },
+  searchWrap: { width: 320, position: "relative" },
+  activeCity: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 16,
+    minHeight: 48,
+  },
+  activeCityText: { color: "#fff", fontSize: 18, fontWeight: "700", flex: 1 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
