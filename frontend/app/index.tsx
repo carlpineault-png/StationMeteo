@@ -916,14 +916,15 @@ export default function Index() {
 
                 {weather?.daily.map((d, i) => {
                   const date = new Date(`${d.date}T12:00:00`);
-                  const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR_SHORT[date.getDay()];
+                  const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR[date.getDay()];
+                  const dayLabel = `${dayName} — ${date.getDate()} ${MONTHS_FR[date.getMonth()]}`;
                   const info = infoFor(d.code, 1);
                   const precipLabel = formatPrecip(d.rainSum, d.snowSum);
                   const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
                   return (
                     <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
                       <View style={styles.dailyDayCol}>
-                        <Text style={[styles.dailyDay, { fontSize: fs(17) }]}>{dayName}</Text>
+                        <Text style={[styles.dailyDay, { fontSize: fs(17) }]} numberOfLines={1}>{dayLabel}</Text>
                         {precipLabel ? (
                           <Text style={[styles.dailyPrecip, { fontSize: fs(11) }]} testID={`day-precip-${i}`}>
                             {precipLabel}
@@ -1343,7 +1344,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  hourlyContainer: { position: "relative" },
+  hourlyContainer: { position: "relative", marginTop: "auto" },
   hourlyScroll: { flexGrow: 0 },
   hourlyRow: { gap: 8, paddingHorizontal: 4, alignItems: "stretch" },
   hourlyFade: {
@@ -1392,7 +1393,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
-  dailyDayCol: { width: 120 },
+  dailyDayCol: { width: 170 },
   dailyDay: { color: "#fff", fontSize: 17, fontWeight: "700" },
   dailyPrecip: { color: "#9BD0FF", fontSize: 11, fontWeight: "700", marginTop: 1 },
   dailyTempCol: { width: 60, alignItems: "flex-end" },
@@ -1406,7 +1407,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 12,
   },
-  tickHeaderLeftSpacer: { width: 120 + 38 + 60 + 30 },
+  tickHeaderLeftSpacer: { width: 170 + 38 + 60 + 30 },
   tickHeaderRightSpacer: { width: 60 + 8 },
   tickHeaderTrack: {
     flex: 1,
