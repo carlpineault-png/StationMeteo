@@ -783,6 +783,9 @@ export default function Index() {
                   ) : null}
                 </View>
 
+                {/* Flex spacer pushes the hourly section to the bottom of the column */}
+                <View style={styles.flex} />
+
                 {/* HOURLY under alert slot */}
                 <View style={styles.hourlyContainer}>
                   <ScrollView
@@ -917,19 +920,22 @@ export default function Index() {
                 {weather?.daily.map((d, i) => {
                   const date = new Date(`${d.date}T12:00:00`);
                   const dayName = i === 0 ? "Aujourd'hui" : DAYS_FR[date.getDay()];
-                  const dayLabel = `${dayName} — ${date.getDate()} ${MONTHS_FR[date.getMonth()]}`;
+                  const dateLabel = `${date.getDate()} ${MONTHS_FR[date.getMonth()]}`;
                   const info = infoFor(d.code, 1);
                   const precipLabel = formatPrecip(d.rainSum, d.snowSum);
                   const hours = weather ? getDayHours(weather.hourlyAll, d.date) : [];
                   return (
                     <View key={d.date} style={styles.dailyRow} testID={`day-item-${i}`}>
                       <View style={styles.dailyDayCol}>
-                        <Text style={[styles.dailyDay, { fontSize: fs(17) }]} numberOfLines={1}>{dayLabel}</Text>
+                        <Text style={[styles.dailyDay, { fontSize: fs(17) }]} numberOfLines={1}>{dayName}</Text>
                         {precipLabel ? (
                           <Text style={[styles.dailyPrecip, { fontSize: fs(11) }]} testID={`day-precip-${i}`}>
                             {precipLabel}
                           </Text>
                         ) : null}
+                      </View>
+                      <View style={styles.dailyDateCol}>
+                        <Text style={[styles.dailyDate, { fontSize: fs(15) }]} numberOfLines={1}>{dateLabel}</Text>
                       </View>
                       <MaterialCommunityIcons name={info.icon} size={fs(32)} color="#fff" style={{ width: fs(38) }} />
                       <View style={styles.dailyTempCol}>
@@ -1344,7 +1350,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  hourlyContainer: { position: "relative", marginTop: "auto" },
+  hourlyContainer: { position: "relative" },
   hourlyScroll: { flexGrow: 0 },
   hourlyRow: { gap: 8, paddingHorizontal: 4, alignItems: "stretch" },
   hourlyFade: {
@@ -1393,9 +1399,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.18)",
   },
-  dailyDayCol: { width: 170 },
+  dailyDayCol: { width: 110 },
   dailyDay: { color: "#fff", fontSize: 17, fontWeight: "700" },
   dailyPrecip: { color: "#9BD0FF", fontSize: 11, fontWeight: "700", marginTop: 1 },
+  dailyDateCol: { width: 100 },
+  dailyDate: { color: "rgba(255,255,255,0.9)", fontSize: 15, fontWeight: "600" },
   dailyTempCol: { width: 60, alignItems: "flex-end" },
   dailyMin: { color: "rgba(255,255,255,0.95)", fontSize: 17, fontWeight: "600" },
   dailyMax: { color: "#fff", fontSize: 17, fontWeight: "700" },
@@ -1407,7 +1415,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 12,
   },
-  tickHeaderLeftSpacer: { width: 170 + 38 + 60 + 30 },
+  tickHeaderLeftSpacer: { width: 110 + 100 + 38 + 60 + 40 },
   tickHeaderRightSpacer: { width: 60 + 8 },
   tickHeaderTrack: {
     flex: 1,
