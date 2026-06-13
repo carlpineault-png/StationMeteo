@@ -574,7 +574,7 @@ export default function Index() {
       lat,
       lon,
       zoom: "6",
-      overlay: "clouds",
+      overlay: "radar",
       level: "surface",
       menu: "",
       message: "true",
@@ -606,76 +606,56 @@ export default function Index() {
           {/* HEADER */}
           <View style={styles.header}>
             <View style={styles.searchWrap}>
-              {showAlert ? (
-                <View style={styles.alertBar} testID="alert-bar">
-                  <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={28} color="#fff" />
-                  <View style={styles.flex}>
-                    <Text style={styles.alertBarTitle}>Alerte météo</Text>
-                    <Text style={styles.alertBarText} numberOfLines={1}>{alerts[0].label}</Text>
-                  </View>
+              <View style={styles.searchBar}>
+                <MaterialCommunityIcons name="magnify" size={28} color="#fff" />
+                <TextInput
+                  testID="search-city-input"
+                  value={searchQuery}
+                  onChangeText={(t) => {
+                    setSearchQuery(t);
+                    setShowResults(true);
+                  }}
+                  onFocus={() => setShowResults(true)}
+                  placeholder="Rechercher une ville…"
+                  placeholderTextColor="rgba(255,255,255,0.7)"
+                  style={styles.searchInput}
+                  returnKeyType="search"
+                  autoCorrect={false}
+                />
+                {searching ? <ActivityIndicator color="#fff" /> : null}
+                {searchQuery.length > 0 ? (
                   <TouchableOpacity
-                    testID="alert-dismiss-button"
-                    onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
+                    testID="search-clear-button"
+                    onPress={() => {
+                      setSearchQuery("");
+                      setSearchResults([]);
+                    }}
                     hitSlop={12}
-                    style={styles.alertBarClose}
                   >
-                    <MaterialCommunityIcons name="close-circle" size={28} color="#fff" />
+                    <MaterialCommunityIcons name="close-circle" size={26} color="rgba(255,255,255,0.85)" />
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.searchBar}>
-                    <MaterialCommunityIcons name="magnify" size={28} color="#fff" />
-                    <TextInput
-                      testID="search-city-input"
-                      value={searchQuery}
-                      onChangeText={(t) => {
-                        setSearchQuery(t);
-                        setShowResults(true);
-                      }}
-                      onFocus={() => setShowResults(true)}
-                      placeholder="Rechercher une ville…"
-                      placeholderTextColor="rgba(255,255,255,0.7)"
-                      style={styles.searchInput}
-                      returnKeyType="search"
-                      autoCorrect={false}
-                    />
-                    {searching ? <ActivityIndicator color="#fff" /> : null}
-                    {searchQuery.length > 0 ? (
-                      <TouchableOpacity
-                        testID="search-clear-button"
-                        onPress={() => {
-                          setSearchQuery("");
-                          setSearchResults([]);
-                        }}
-                        hitSlop={12}
-                      >
-                        <MaterialCommunityIcons name="close-circle" size={26} color="rgba(255,255,255,0.85)" />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
+                ) : null}
+              </View>
 
-                  {showResults && searchResults.length > 0 ? (
-                    <View style={styles.resultsBox} testID="search-results">
-                      {searchResults.map((r, i) => (
-                        <TouchableOpacity
-                          key={`${r.name}-${r.latitude}-${r.longitude}-${i}`}
-                          style={styles.resultItem}
-                          onPress={() => pickPlace(r)}
-                          testID={`search-result-${i}`}
-                        >
-                          <MaterialCommunityIcons name="map-marker" size={26} color="#111" />
-                          <Text style={styles.resultText} numberOfLines={1}>
-                            {r.name}
-                            {r.admin1 ? `, ${r.admin1}` : ""}
-                            {r.country ? ` — ${r.country}` : ""}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : null}
-                </>
-              )}
+              {showResults && searchResults.length > 0 ? (
+                <View style={styles.resultsBox} testID="search-results">
+                  {searchResults.map((r, i) => (
+                    <TouchableOpacity
+                      key={`${r.name}-${r.latitude}-${r.longitude}-${i}`}
+                      style={styles.resultItem}
+                      onPress={() => pickPlace(r)}
+                      testID={`search-result-${i}`}
+                    >
+                      <MaterialCommunityIcons name="map-marker" size={26} color="#111" />
+                      <Text style={styles.resultText} numberOfLines={1}>
+                        {r.name}
+                        {r.admin1 ? `, ${r.admin1}` : ""}
+                        {r.country ? ` — ${r.country}` : ""}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
             </View>
 
             <TouchableOpacity
@@ -781,6 +761,25 @@ export default function Index() {
                     </View>
                   ) : null}
                 </View>
+
+                {/* ALERT between hero and hourly (only when active) */}
+                {showAlert ? (
+                  <View style={styles.alertBar} testID="alert-bar">
+                    <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={fs(26)} color="#fff" />
+                    <View style={styles.flex}>
+                      <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>Alerte météo</Text>
+                      <Text style={[styles.alertBarText, { fontSize: fs(15) }]} numberOfLines={2}>{alerts[0].label}</Text>
+                    </View>
+                    <TouchableOpacity
+                      testID="alert-dismiss-button"
+                      onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
+                      hitSlop={12}
+                      style={styles.alertBarClose}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={fs(26)} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
 
                 {/* HOURLY under hero */}
                 <View style={styles.hourlyContainer}>
@@ -888,8 +887,8 @@ export default function Index() {
                     <MaterialCommunityIcons name="arrow-expand" size={22} color="#fff" />
                   </TouchableOpacity>
                   <View style={styles.mapTag} pointerEvents="none">
-                    <MaterialCommunityIcons name="weather-cloudy" size={16} color="#fff" />
-                    <Text style={styles.mapTagText}>Nuages en temps réel</Text>
+                    <MaterialCommunityIcons name="radar" size={16} color="#fff" />
+                    <Text style={styles.mapTagText}>Radar météo</Text>
                   </View>
                 </View>
               </View>
