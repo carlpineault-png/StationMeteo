@@ -709,7 +709,8 @@ export default function Index() {
             <View style={styles.topRow}>
               {/* LEFT — hero combined card + hourly */}
               <View style={styles.topLeft}>
-                <View style={styles.heroCard} testID="hero-card">
+                <View style={styles.topLeftStack}>
+                  <View style={styles.heroCard} testID="hero-card">
                   {/* Row: time on left, date + city on right */}
                   <View style={styles.heroTopRow}>
                     <Text style={[styles.clockTime, { fontSize: fs(70), lineHeight: fs(76) }]} testID="clock-time-display">
@@ -781,6 +782,7 @@ export default function Index() {
                       </TouchableOpacity>
                     </View>
                   ) : null}
+                </View>
                 </View>
 
                 {/* Flex spacer pushes the hourly section to the bottom of the column */}
@@ -1137,7 +1139,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   topRow: { flex: 1, flexDirection: "row", gap: 12 },
-  topLeft: { flex: 1, gap: 10 },
+  topLeft: { flex: 1, gap: 10, overflow: "hidden" },
+  topLeftStack: { gap: 10 },
   topRight: { flex: 1.1, gap: 8 },
   bottomSection: { flexShrink: 0, minHeight: 290, gap: 4 },
 
