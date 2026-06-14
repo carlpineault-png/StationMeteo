@@ -464,19 +464,22 @@ export default function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Apply brightness: in auto mode, follow isDay; in manual, use manualLevel
+  // Apply brightness: in auto mode, follow local clock (day 7h-20h, night otherwise)
+  // Using local clock instead of weather's is_day so brightness changes immediately at dusk/dawn
+  const localHour = now.getHours();
+  const isDayLocal = localHour >= 7 && localHour < 20;
   useEffect(() => {
     (async () => {
       try {
         const target = brightMode === "auto"
-          ? (weather?.current.isDay ? 1.0 : 0.35)
+          ? (isDayLocal ? 1.0 : 0.35)
           : manualLevel;
         await Brightness.setBrightnessAsync(target);
       } catch {
         // Brightness API can fail on web preview — safe to ignore
       }
     })();
-  }, [brightMode, manualLevel, weather?.current.isDay]);
+  }, [brightMode, manualLevel, isDayLocal]);
 
   const [hourlyCanLeft, setHourlyCanLeft] = useState(false);
   const [hourlyCanRight, setHourlyCanRight] = useState(false);
@@ -1174,7 +1177,7 @@ export default function Index() {
               </View>
             ) : (
               <Text style={styles.brightHelp}>
-                La luminosité s'adapte automatiquement : maximale en journée, réduite la nuit.
+                La luminosité s'adapte automatiquement : maximale en journée (7h–20h), réduite la nuit (20h–7h).
               </Text>
             )}
           </Pressable>
