@@ -1060,10 +1060,10 @@ export default function Index() {
                         {i === 0 ? (
                           <View style={styles.timelineLabels} pointerEvents="none">
                             {[
-                              { label: "6h", pos: 12.5 },
-                              { label: "12h", pos: 37.5 },
-                              { label: "18h", pos: 62.5 },
-                              { label: "24h", pos: 87.5 },
+                              { label: "6h", pos: (5.5 / 24) * 100 },
+                              { label: "12h", pos: (11.5 / 24) * 100 },
+                              { label: "18h", pos: (17.5 / 24) * 100 },
+                              { label: "24h", pos: (23.5 / 24) * 100 },
                             ].map((it) => (
                               <Text
                                 key={it.label}
