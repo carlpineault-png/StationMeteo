@@ -850,18 +850,6 @@ export default function Index() {
                         <Text style={[styles.feelsLike, { fontSize: fs(15) }]}>
                           {t.humidity} {Math.round(weather.current.humidity)}% • {t.wind} {Math.round(weather.current.windSpeed)} km/h • {t.rainUnit} {weather.current.precipitation.toFixed(1).replace(".", ",")} mm
                         </Text>
-                        {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
-                          <View style={styles.precipBadge} testID="current-precip">
-                            <MaterialCommunityIcons
-                              name={weather.current.snowfall > 0 ? "weather-snowy-heavy" : "weather-pouring"}
-                              size={fs(20)}
-                              color="#fff"
-                            />
-                            <Text style={[styles.precipText, { fontSize: fs(15) }]}>
-                              {formatPrecip(weather.current.rain, weather.current.snowfall, t.rainUnit, t.snowUnit)}
-                            </Text>
-                          </View>
-                        ) : null}
                       </View>
                     </View>
                   ) : null}
