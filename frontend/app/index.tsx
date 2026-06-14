@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Brightness from "expo-brightness";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
@@ -113,6 +113,15 @@ function infoFor(code: number, isDay = 1) {
   const info = WEATHER_INFO[code] ?? { label: "—", icon: "weather-cloudy" as const };
   const icon = !isDay && info.nightIcon ? info.nightIcon : info.icon;
   return { label: info.label, icon };
+}
+
+// Render weather icon — uses Feather's clean classic sun for sunny codes, MCI otherwise
+type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
+function WIcon({ name, size, color, style }: { name: IconName; size: number; color: string; style?: object }) {
+  if (name === "weather-sunny") {
+    return <Feather name="sun" size={Math.round(size * 0.9)} color={color} style={style} />;
+  }
+  return <MaterialCommunityIcons name={name} size={size} color={color} style={style} />;
 }
 
 // ---------- Gradient + Background image by condition ----------
@@ -824,7 +833,7 @@ export default function Index() {
                     <ActivityIndicator size="large" color="#fff" style={{ marginVertical: 24 }} />
                   ) : weather ? (
                     <View style={styles.heroWeatherRow}>
-                      <MaterialCommunityIcons name={currentInfo.icon} size={fs(78)} color="#fff" />
+                      <WIcon name={currentInfo.icon} size={fs(78)} color="#fff" />
                       <View style={styles.flex}>
                         <View style={styles.tempLine}>
                           <Text style={[styles.currentTemp, { fontSize: fs(72), lineHeight: fs(78) }]} testID="current-temperature">
@@ -916,7 +925,7 @@ export default function Index() {
                           testID={`hour-item-${i}`}
                         >
                           <Text style={[styles.hourLabel, { fontSize: fs(15) }]}>{label}</Text>
-                          <MaterialCommunityIcons name={info.icon} size={fs(34)} color="#fff" />
+                          <WIcon name={info.icon} size={fs(34)} color="#fff" />
                           <Text style={[styles.hourTemp, { fontSize: fs(22) }]}>{fmtTemp(h.temp, unit)}</Text>
                           <Text style={[styles.hourFeels, { fontSize: fs(12) }]} testID={`hour-feels-${i}`}>
                             {t.feels} {fmtTemp(h.apparent, unit)}
@@ -1038,7 +1047,7 @@ export default function Index() {
                       <View style={styles.dailyDateCol}>
                         <Text style={[styles.dailyDate, { fontSize: fs(15) }]} numberOfLines={1}>{dateLabel}</Text>
                       </View>
-                      <MaterialCommunityIcons name={info.icon} size={fs(32)} color="#fff" style={{ width: fs(38) }} />
+                      <WIcon name={info.icon} size={fs(32)} color="#fff" style={{ width: fs(38) }} />
                       <View style={styles.dailyTempCol}>
                         <Text style={[styles.dailyMin, { fontSize: fs(17) }]}>{fmtTemp(d.tMin, unit)}</Text>
                         <Text style={[styles.dailyFeels, { fontSize: fs(10) }]} testID={`day-feels-min-${i}`}>
