@@ -1013,7 +1013,7 @@ export default function Index() {
             </View>
 
             {/* BOTTOM — 7-day forecast full width */}
-            <View style={[styles.bottomSection, { minHeight: Math.round(260 * s) }]}>
+            <View style={styles.bottomSection}>
               <View style={styles.dailyList} testID="daily-forecast-list">
                 <View style={styles.tickHeader} pointerEvents="none">
                   <View style={styles.tickHeaderLeftSpacer} />
@@ -1330,10 +1330,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   topRow: { flex: 1, flexDirection: "row", gap: 12 },
-  topLeft: { flex: 1, gap: 10, overflow: "hidden" },
+  topLeft: { flex: 1, gap: 10, overflow: "hidden", paddingBottom: 8 },
   topLeftStack: { gap: 10 },
   topRight: { flex: 1.1, gap: 8 },
-  bottomSection: { flexShrink: 0, minHeight: 260, gap: 4 },
+  bottomSection: { flexShrink: 0, gap: 4 },
 
   // MAIN LAYOUT
   mainArea: { flexDirection: "column", gap: 24, marginTop: 12 },
