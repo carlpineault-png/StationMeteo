@@ -387,13 +387,10 @@ export default function Index() {
   const t = useMemo(() => getT(lang), [lang]);
 
   const timeFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: !uses24h }),
-    [locale, uses24h],
-  );
-  const hourFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
     [locale, uses24h],
   );
+  const hourFormatter = timeFormatter;
   const weekdayFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { weekday: "long" }),
     [locale],
@@ -836,11 +833,11 @@ export default function Index() {
                       {timeFormatter.format(now)}
                     </Text>
                     <View style={styles.heroDateBlock}>
-                      <Text style={[styles.clockDate, { fontSize: fs(28), lineHeight: fs(34) }]} testID="clock-date-display">
-                        {(() => { const s = weekdayFormatter.format(now); return s.charAt(0).toUpperCase() + s.slice(1); })()}
-                      </Text>
-                      <Text style={[styles.clockDate2, { fontSize: fs(22), lineHeight: fs(26) }]} testID="clock-date2-display">
-                        {dateFormatter.format(now)}
+                      <Text style={[styles.clockDate, { fontSize: fs(32), lineHeight: fs(38) }]} testID="clock-date-display">
+                        {(() => {
+                          const w = weekdayFormatter.format(now);
+                          return w.charAt(0).toUpperCase() + w.slice(1) + " " + dateFormatter.format(now);
+                        })()}
                       </Text>
                     </View>
                   </View>
