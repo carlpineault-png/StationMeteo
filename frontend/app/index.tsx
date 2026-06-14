@@ -508,6 +508,7 @@ export default function Index() {
   const [hourlyCanRight, setHourlyCanRight] = useState(false);
 
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapLayer, setMapLayer] = useState<"radar" | "clouds">("radar");
   const [alertDismissedUntil, setAlertDismissedUntil] = useState<number>(0);
 
   const handleHourlyScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number }; layoutMeasurement: { width: number }; contentSize: { width: number } } }) => {
@@ -674,7 +675,8 @@ export default function Index() {
   // Alert is visible if there are alerts and we are past the dismiss expiry timestamp
   const showAlert = alerts.length > 0 && Date.now() >= alertDismissedUntil;
 
-  // Build the Windy embed URL centered on current location, layer = rain
+  // Build the Windy embed URL centered on current location.
+  // `mapLayer === "clouds"` shows cloud-cover forecast (future); `radar` shows precipitation past+now.
   const windyUrl = useMemo(() => {
     if (!place) return null;
     const lat = place.latitude.toFixed(3);
@@ -683,7 +685,7 @@ export default function Index() {
       lat,
       lon,
       zoom: "6",
-      overlay: "radar",
+      overlay: mapLayer === "clouds" ? "clouds" : "radar",
       level: "surface",
       menu: "",
       message: "true",
@@ -698,7 +700,7 @@ export default function Index() {
       radarRange: "-1",
     });
     return `https://embed.windy.com/embed2.html?${params.toString()}`;
-  }, [place]);
+  }, [place, mapLayer]);
 
   return (
     <View style={styles.root} testID="weather-screen">
@@ -1018,10 +1020,24 @@ export default function Index() {
                   >
                     <MaterialCommunityIcons name="arrow-expand" size={22} color="#fff" />
                   </TouchableOpacity>
-                  <View style={styles.mapTag} pointerEvents="none">
-                    <MaterialCommunityIcons name="radar" size={16} color="#fff" />
-                    <Text style={styles.mapTagText}>{t.weatherRadar}</Text>
-                  </View>
+                  <TouchableOpacity
+                    testID="map-layer-toggle"
+                    style={styles.mapLayerToggle}
+                    onPress={() =>
+                      setMapLayer((prev) => (prev === "radar" ? "clouds" : "radar"))
+                    }
+                    activeOpacity={0.85}
+                    hitSlop={8}
+                  >
+                    <MaterialCommunityIcons
+                      name={mapLayer === "clouds" ? "weather-cloudy" : "radar"}
+                      size={16}
+                      color="#fff"
+                    />
+                    <Text style={styles.mapTagText}>
+                      {mapLayer === "clouds" ? t.cloudsLayer : t.radarLayer}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -1486,6 +1502,20 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 14,
     backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  mapLayerToggle: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
   },
   mapTagText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 
