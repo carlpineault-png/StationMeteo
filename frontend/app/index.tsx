@@ -387,8 +387,20 @@ export default function Index() {
   const t = useMemo(() => getT(lang), [lang]);
 
   const timeFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: !uses24h }),
+    [locale, uses24h],
+  );
+  const hourFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
     [locale, uses24h],
+  );
+  const weekdayFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { weekday: "long" }),
+    [locale],
+  );
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }),
+    [locale],
   );
 
   const [unit, setUnit] = useState<Unit>("C");
@@ -825,7 +837,10 @@ export default function Index() {
                     </Text>
                     <View style={styles.heroDateBlock}>
                       <Text style={[styles.clockDate, { fontSize: fs(28), lineHeight: fs(34) }]} testID="clock-date-display">
-                        {t.formatLongDate(now, locale)}
+                        {(() => { const s = weekdayFormatter.format(now); return s.charAt(0).toUpperCase() + s.slice(1); })()}
+                      </Text>
+                      <Text style={[styles.clockDate2, { fontSize: fs(22), lineHeight: fs(26) }]} testID="clock-date2-display">
+                        {dateFormatter.format(now)}
                       </Text>
                     </View>
                   </View>
@@ -905,7 +920,7 @@ export default function Index() {
                   >
                     {weather?.hourly.map((h, i) => {
                       const date = new Date(h.time);
-                      const label = i === 0 ? t.now : timeFormatter.format(date);
+                      const label = i === 0 ? t.now : hourFormatter.format(date);
                       const info = infoFor(h.code, 1);
                       const tint = hourCardTint(h.precip, h.sunshine, h.code);
                       const showPrecip = h.precip >= 0.05;
@@ -1372,11 +1387,18 @@ const styles = StyleSheet.create({
   },
   clockDate: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "700",
     textAlign: "right",
     textTransform: "capitalize",
-    lineHeight: 24,
+    lineHeight: 34,
+  },
+  clockDate2: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 22,
+    fontWeight: "600",
+    textAlign: "right",
+    lineHeight: 26,
   },
   cityName: {
     color: "#fff",
