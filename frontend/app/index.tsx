@@ -848,7 +848,7 @@ export default function Index() {
                         </View>
                         <Text style={[styles.conditionText, { fontSize: fs(22) }]}>{currentInfo.label}</Text>
                         <Text style={[styles.feelsLike, { fontSize: fs(15) }]}>
-                          {t.humidity} {Math.round(weather.current.humidity)}% • {t.wind} {Math.round(weather.current.windSpeed)} km/h
+                          {t.humidity} {Math.round(weather.current.humidity)}% • {t.wind} {Math.round(weather.current.windSpeed)} km/h • {t.rainUnit} {weather.current.precipitation.toFixed(1).replace(".", ",")} mm
                         </Text>
                         {formatPrecip(weather.current.rain, weather.current.snowfall) ? (
                           <View style={styles.precipBadge} testID="current-precip">
