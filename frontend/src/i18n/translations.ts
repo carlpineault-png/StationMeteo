@@ -23,10 +23,44 @@ export function detectUses24h(): boolean {
   return lang !== "en";
 }
 
-// BCP-47 tag for Intl
+// BCP-47 tag for Intl — sanitised so values like "en-US@posix" or "C" don't crash Intl
+function sanitiseTag(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // Strip POSIX extension ("@posix", "@euro", etc.) and any codeset (".UTF-8")
+  let t = String(raw).split("@")[0].split(".")[0].trim();
+  if (!t || t.toUpperCase() === "C" || t.toUpperCase() === "POSIX") return null;
+  // Normalise underscores to hyphens (e.g. fr_FR -> fr-FR)
+  t = t.replace(/_/g, "-");
+  // Validate by attempting to construct an Intl locale; fall back to language part only
+  try {
+    new Intl.DateTimeFormat(t);
+    return t;
+  } catch {
+    const base = t.split("-")[0];
+    if (!base) return null;
+    try {
+      new Intl.DateTimeFormat(base);
+      return base;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function detectLocaleTag(): string {
-  const locales = getLocales();
-  return locales[0]?.languageTag ?? "fr-FR";
+  try {
+    const locales = getLocales();
+    for (const l of locales ?? []) {
+      const cleaned = sanitiseTag(l?.languageTag);
+      if (cleaned) return cleaned;
+      const code = sanitiseTag(l?.languageCode);
+      if (code) return code;
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  // Default to French (primary supported language)
+  return "fr-FR";
 }
 
 // ---------- Strings ----------

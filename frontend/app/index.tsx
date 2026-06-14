@@ -386,17 +386,31 @@ export default function Index() {
   const uses24h = useMemo(() => detectUses24h(), []);
   const t = useMemo(() => getT(lang), [lang]);
 
+  const safeFormatter = (
+    loc: string,
+    options: Intl.DateTimeFormatOptions,
+  ): Intl.DateTimeFormat => {
+    try {
+      return new Intl.DateTimeFormat(loc, options);
+    } catch {
+      try {
+        return new Intl.DateTimeFormat("fr-FR", options);
+      } catch {
+        return new Intl.DateTimeFormat(undefined, options);
+      }
+    }
+  };
   const timeFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
+    () => safeFormatter(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
     [locale, uses24h],
   );
   const hourFormatter = timeFormatter;
   const weekdayFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { weekday: "long" }),
+    () => safeFormatter(locale, { weekday: "long" }),
     [locale],
   );
   const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }),
+    () => safeFormatter(locale, { day: "numeric", month: "long", year: "numeric" }),
     [locale],
   );
 
