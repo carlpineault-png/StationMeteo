@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Brightness from "expo-brightness";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
@@ -274,6 +275,8 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
 // ---------- Storage keys ----------
 const K_UNIT = "weather.unit";
 const K_PLACE = "weather.place";
+const K_BRIGHT_MODE = "weather.brightMode";
+const K_BRIGHT_LEVEL = "weather.brightLevel";
 
 // ---------- Day-timeline helpers ----------
 type HourSample = { hour: number; sunshine: number; precip: number };
@@ -393,6 +396,11 @@ export default function Index() {
   const [now, setNow] = useState<Date>(new Date());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Brightness state (declared early so effects below can reference)
+  const [brightMode, setBrightMode] = useState<"auto" | "manual">("auto");
+  const [manualLevel, setManualLevel] = useState<number>(0.7);
+  const [brightOpen, setBrightOpen] = useState(false);
+
   // Tick the clock every second
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -404,6 +412,11 @@ export default function Index() {
     (async () => {
       const storedUnit = await storage.getItem<string>(K_UNIT, "C");
       if (storedUnit === "F" || storedUnit === "C") setUnit(storedUnit);
+      const storedMode = await storage.getItem<string>(K_BRIGHT_MODE, "auto");
+      if (storedMode === "auto" || storedMode === "manual") setBrightMode(storedMode);
+      const storedLevel = await storage.getItem<string>(K_BRIGHT_LEVEL, "0.7");
+      const lvl = parseFloat(storedLevel ?? "0.7");
+      if (!Number.isNaN(lvl)) setManualLevel(Math.max(0.1, Math.min(1, lvl)));
       const storedPlace = await storage.getItem<string>(K_PLACE, "");
       if (storedPlace) {
         try {
@@ -418,6 +431,20 @@ export default function Index() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Apply brightness: in auto mode, follow isDay; in manual, use manualLevel
+  useEffect(() => {
+    (async () => {
+      try {
+        const target = brightMode === "auto"
+          ? (weather?.current.isDay ? 1.0 : 0.35)
+          : manualLevel;
+        await Brightness.setBrightnessAsync(target);
+      } catch {
+        // Brightness API can fail on web preview — safe to ignore
+      }
+    })();
+  }, [brightMode, manualLevel, weather?.current.isDay]);
 
   const [hourlyCanLeft, setHourlyCanLeft] = useState(false);
   const [hourlyCanRight, setHourlyCanRight] = useState(false);
@@ -436,6 +463,17 @@ export default function Index() {
   const persistUnit = useCallback(async (u: Unit) => {
     setUnit(u);
     await storage.setItem(K_UNIT, u);
+  }, []);
+
+  const setBrightModeAndPersist = useCallback(async (m: "auto" | "manual") => {
+    setBrightMode(m);
+    await storage.setItem(K_BRIGHT_MODE, m);
+  }, []);
+
+  const setManualLevelAndPersist = useCallback(async (v: number) => {
+    const clamped = Math.max(0.1, Math.min(1, v));
+    setManualLevel(clamped);
+    await storage.setItem(K_BRIGHT_LEVEL, clamped.toFixed(2));
   }, []);
 
   const persistPlace = useCallback(async (p: Place) => {
@@ -682,7 +720,20 @@ export default function Index() {
               onPress={() => requestGeolocation(false)}
               accessibilityLabel="Utiliser ma position"
             >
-              <MaterialCommunityIcons name="crosshairs-gps" size={36} color="#fff" />
+              <MaterialCommunityIcons name="crosshairs-gps" size={28} color="#fff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="brightness-button"
+              style={styles.iconBtn}
+              onPress={() => setBrightOpen(true)}
+              accessibilityLabel="Luminosité"
+            >
+              <MaterialCommunityIcons
+                name={brightMode === "auto" ? "brightness-auto" : "brightness-6"}
+                size={28}
+                color="#fff"
+              />
             </TouchableOpacity>
 
             <View style={styles.unitToggle} testID="unit-toggle-button">
@@ -1020,6 +1071,73 @@ export default function Index() {
           </SafeAreaView>
         </View>
       </Modal>
+      {/* BRIGHTNESS POPOVER */}
+      <Modal
+        visible={brightOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setBrightOpen(false)}
+      >
+        <Pressable style={styles.brightBackdrop} onPress={() => setBrightOpen(false)}>
+          <Pressable style={styles.brightCard} onPress={(e) => e.stopPropagation()} testID="brightness-popover">
+            <Text style={styles.brightTitle}>Luminosité</Text>
+            <View style={styles.brightModeRow}>
+              <Pressable
+                testID="bright-mode-auto"
+                style={[styles.brightModeChip, brightMode === "auto" && styles.brightModeChipActive]}
+                onPress={() => setBrightModeAndPersist("auto")}
+              >
+                <MaterialCommunityIcons name="brightness-auto" size={22} color={brightMode === "auto" ? "#111" : "#fff"} />
+                <Text style={[styles.brightModeText, brightMode === "auto" && styles.brightModeTextActive]}>Auto</Text>
+              </Pressable>
+              <Pressable
+                testID="bright-mode-manual"
+                style={[styles.brightModeChip, brightMode === "manual" && styles.brightModeChipActive]}
+                onPress={() => setBrightModeAndPersist("manual")}
+              >
+                <MaterialCommunityIcons name="tune-variant" size={22} color={brightMode === "manual" ? "#111" : "#fff"} />
+                <Text style={[styles.brightModeText, brightMode === "manual" && styles.brightModeTextActive]}>Manuel</Text>
+              </Pressable>
+            </View>
+
+            {brightMode === "manual" ? (
+              <View style={styles.brightLevelsCol}>
+                <View style={styles.brightLevelsRow}>
+                  <MaterialCommunityIcons name="brightness-5" size={22} color="rgba(255,255,255,0.7)" />
+                  <View style={styles.brightLevelsBarTrack}>
+                    <View style={[styles.brightLevelsBarFill, { width: `${Math.round(manualLevel * 100)}%` }]} />
+                  </View>
+                  <MaterialCommunityIcons name="brightness-7" size={26} color="#fff" />
+                </View>
+                <View style={styles.brightPresetsRow}>
+                  {[0.2, 0.4, 0.6, 0.8, 1.0].map((lvl) => (
+                    <Pressable
+                      key={lvl}
+                      testID={`bright-preset-${Math.round(lvl * 100)}`}
+                      style={[
+                        styles.brightPresetBtn,
+                        Math.abs(manualLevel - lvl) < 0.05 && styles.brightPresetBtnActive,
+                      ]}
+                      onPress={() => setManualLevelAndPersist(lvl)}
+                    >
+                      <Text style={[
+                        styles.brightPresetText,
+                        Math.abs(manualLevel - lvl) < 0.05 && styles.brightPresetTextActive,
+                      ]}>
+                        {Math.round(lvl * 100)}%
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.brightHelp}>
+                La luminosité s'adapte automatiquement : maximale en journée, réduite la nuit.
+              </Text>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1320,6 +1438,59 @@ const styles = StyleSheet.create({
 
   // ALERT bar (replaces search bar when alert active)
   alertSlot: { justifyContent: "center" },
+
+  // BRIGHTNESS POPOVER
+  brightBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  brightCard: {
+    backgroundColor: "#1c2530",
+    borderRadius: 24,
+    padding: 24,
+    width: 420,
+    gap: 16,
+  },
+  brightTitle: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  brightModeRow: { flexDirection: "row", gap: 10 },
+  brightModeChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  brightModeChipActive: { backgroundColor: "#fff" },
+  brightModeText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  brightModeTextActive: { color: "#111" },
+  brightLevelsCol: { gap: 12 },
+  brightLevelsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  brightLevelsBarTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    overflow: "hidden",
+  },
+  brightLevelsBarFill: { height: "100%", backgroundColor: "#FFC83D", borderRadius: 4 },
+  brightPresetsRow: { flexDirection: "row", gap: 8, justifyContent: "space-between" },
+  brightPresetBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+  },
+  brightPresetBtnActive: { backgroundColor: "#FFC83D" },
+  brightPresetText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  brightPresetTextActive: { color: "#111" },
+  brightHelp: { color: "rgba(255,255,255,0.85)", fontSize: 15, fontWeight: "500", lineHeight: 22 },
+
   alertBar: {
     flexDirection: "row",
     alignItems: "center",
