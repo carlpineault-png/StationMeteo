@@ -472,7 +472,7 @@ export default function Index() {
     (async () => {
       try {
         const target = brightMode === "auto"
-          ? (isDayLocal ? 1.0 : 0.35)
+          ? (isDayLocal ? 1.0 : 0.20)
           : manualLevel;
         await Brightness.setBrightnessAsync(target);
       } catch {
