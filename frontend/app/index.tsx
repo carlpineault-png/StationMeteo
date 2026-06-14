@@ -407,6 +407,29 @@ export default function Index() {
     return () => clearInterval(id);
   }, []);
 
+  // Auto-refresh weather: when the day changes (midnight crossover), and every 30 minutes
+  const lastRefreshDayRef = useRef<string>("");
+  const dayKey = now.toDateString(); // "Wed Jun 10 2026"
+  useEffect(() => {
+    if (!place) return;
+    if (lastRefreshDayRef.current && lastRefreshDayRef.current !== dayKey) {
+      // Day changed (midnight crossover) — refresh
+      loadWeather(place);
+    }
+    lastRefreshDayRef.current = dayKey;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKey, place]);
+
+  // Periodic refresh every 30 minutes
+  useEffect(() => {
+    if (!place) return;
+    const id = setInterval(() => {
+      loadWeather(place);
+    }, 30 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place]);
+
   // Load persisted preferences on mount
   useEffect(() => {
     (async () => {
