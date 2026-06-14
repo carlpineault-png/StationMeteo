@@ -855,14 +855,21 @@ export default function Index() {
                   ) : null}
                 </View>
 
-                {/* ALERT slot — always reserved between hero and hourly */}
+                {/* ALERT slot — always reserved between hero and hourly, up to 2 alerts */}
                 <View style={[styles.alertSlot, { minHeight: fs(56) }]} testID="alert-slot">
                   {showAlert ? (
                     <View style={styles.alertBar} testID="alert-bar">
-                      <MaterialCommunityIcons name={ALERT_ICON[alerts[0].kind]} size={fs(26)} color="#fff" />
+                      <MaterialCommunityIcons name="alert-decagram" size={fs(24)} color="#FFD66B" />
                       <View style={styles.flex}>
-                        <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>{t.weatherAlert}</Text>
-                        <Text style={[styles.alertBarText, { fontSize: fs(15) }]} numberOfLines={2}>{alerts[0].label}</Text>
+                        <Text style={[styles.alertBarTitle, { fontSize: fs(12) }]}>
+                          {t.weatherAlert}{alerts.length > 1 ? `  •  ${alerts.length}` : ""}
+                        </Text>
+                        {alerts.slice(0, 2).map((a, idx) => (
+                          <View key={`${a.day}-${a.kind}-${idx}`} style={styles.alertLine} testID={`alert-line-${idx}`}>
+                            <MaterialCommunityIcons name={ALERT_ICON[a.kind]} size={fs(18)} color="#fff" />
+                            <Text style={[styles.alertBarText, { fontSize: fs(14) }]} numberOfLines={1}>{a.label}</Text>
+                          </View>
+                        ))}
                       </View>
                       <TouchableOpacity
                         testID="alert-dismiss-button"
@@ -1523,11 +1530,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(180,30,30,0.92)",
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 10,
     minHeight: 48,
   },
+  alertLine: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 1 },
   alertBarTitle: {
     color: "#FFD66B",
     fontSize: 12,
