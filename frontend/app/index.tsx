@@ -1015,20 +1015,6 @@ export default function Index() {
             {/* BOTTOM — 7-day forecast full width */}
             <View style={styles.bottomSection}>
               <View style={styles.dailyList} testID="daily-forecast-list">
-                <View style={styles.tickHeader} pointerEvents="none">
-                  <View style={styles.tickHeaderLeftSpacer} />
-                  <View style={styles.tickHeaderTrack}>
-                    {[6, 12, 18, 24].map((h) => (
-                      <Text
-                        key={h}
-                        style={[styles.tickLabel, { left: `${(h / 24) * 100}%` }]}
-                      >
-                        {h}h
-                      </Text>
-                    ))}
-                  </View>
-                  <View style={styles.tickHeaderRightSpacer} />
-                </View>
 
                 {weather?.daily.map((d, i) => {
                   const date = new Date(`${d.date}T12:00:00`);
@@ -1071,6 +1057,18 @@ export default function Index() {
                             <View key={h} style={[styles.timelineGridLine, { left: `${(h / 24) * 100}%` }]} />
                           ))}
                         </View>
+                        {i === 0 ? (
+                          <View style={styles.timelineLabels} pointerEvents="none">
+                            {[6, 12, 18, 24].map((h) => (
+                              <Text
+                                key={h}
+                                style={[styles.timelineLabelText, { left: `${(h / 24) * 100}%` }]}
+                              >
+                                {h}h
+                              </Text>
+                            ))}
+                          </View>
+                        ) : null}
                       </View>
                       <View style={styles.dailyTempCol}>
                         <Text style={[styles.dailyMax, { fontSize: fs(17) }]}>{fmtTemp(d.tMax, unit)}</Text>
@@ -1693,6 +1691,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     position: "relative",
     justifyContent: "center",
+  },
+  timelineLabels: {
+    position: "absolute",
+    top: -2,
+    left: 0,
+    right: 0,
+    height: 12,
+  },
+  timelineLabelText: {
+    position: "absolute",
+    top: 0,
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+    textShadowColor: "rgba(0,0,0,0.8)",
+    textShadowRadius: 2,
+    transform: [{ translateX: -10 }],
+    width: 20,
+    textAlign: "center",
   },
   timelineTrack: {
     flexDirection: "row",
