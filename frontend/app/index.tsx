@@ -761,6 +761,9 @@ export default function Index() {
               <TouchableOpacity onPress={() => Linking.openSettings()} testID="open-settings-button">
                 <Text style={styles.errorLink}>Ouvrir les Réglages</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setError(null)} testID="error-dismiss-button" hitSlop={12} style={styles.errorClose}>
+                <MaterialCommunityIcons name="close-circle" size={28} color="#fff" />
+              </TouchableOpacity>
             </View>
           ) : null}
 
@@ -1271,6 +1274,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: "#fff", fontSize: 18, fontWeight: "500", flex: 1 },
   errorLink: { color: "#fff", fontSize: 18, fontWeight: "700", textDecorationLine: "underline" },
+  errorClose: { padding: 4, marginLeft: 4 },
 
   scrollContent: { paddingHorizontal: 24, paddingBottom: 48 },
 
