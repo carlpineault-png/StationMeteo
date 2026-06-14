@@ -79,6 +79,7 @@ type Dict = {
   weatherRadar: string;
   cloudsLayer: string;
   radarLayer: string;
+  rainLayer: string;
   myPosition: string;
   permissionDenied: string;
   permissionOpenSettings: string;
@@ -187,6 +188,7 @@ const FR: Dict = {
   weatherRadar: "Radar météo",
   cloudsLayer: "Nuages",
   radarLayer: "Radar",
+  rainLayer: "Pluie",
   myPosition: "Ma position",
   permissionDenied: "Permission de localisation refusée.",
   permissionOpenSettings: "Permission refusée. Ouvrez les Réglages pour autoriser la localisation.",
@@ -218,6 +220,7 @@ const EN: Dict = {
   weatherRadar: "Weather radar",
   cloudsLayer: "Clouds",
   radarLayer: "Radar",
+  rainLayer: "Rain",
   myPosition: "My location",
   permissionDenied: "Location permission denied.",
   permissionOpenSettings: "Permission denied. Open Settings to allow location.",
@@ -249,6 +252,7 @@ const ES: Dict = {
   weatherRadar: "Radar meteorológico",
   cloudsLayer: "Nubes",
   radarLayer: "Radar",
+  rainLayer: "Lluvia",
   myPosition: "Mi ubicación",
   permissionDenied: "Permiso de ubicación denegado.",
   permissionOpenSettings: "Permiso denegado. Abre Ajustes para permitir la ubicación.",

@@ -508,7 +508,7 @@ export default function Index() {
   const [hourlyCanRight, setHourlyCanRight] = useState(false);
 
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [mapLayer, setMapLayer] = useState<"radar" | "clouds">("radar");
+  const [mapLayer, setMapLayer] = useState<"radar" | "rain" | "clouds">("radar");
   const [alertDismissedUntil, setAlertDismissedUntil] = useState<number>(0);
 
   const handleHourlyScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number }; layoutMeasurement: { width: number }; contentSize: { width: number } } }) => {
@@ -685,7 +685,7 @@ export default function Index() {
       lat,
       lon,
       zoom: "6",
-      overlay: mapLayer === "clouds" ? "clouds" : "radar",
+      overlay: mapLayer === "clouds" ? "clouds" : mapLayer === "rain" ? "rain" : "radar",
       level: "surface",
       menu: "",
       message: "true",
@@ -1024,18 +1024,30 @@ export default function Index() {
                     testID="map-layer-toggle"
                     style={styles.mapLayerToggle}
                     onPress={() =>
-                      setMapLayer((prev) => (prev === "radar" ? "clouds" : "radar"))
+                      setMapLayer((prev) =>
+                        prev === "radar" ? "rain" : prev === "rain" ? "clouds" : "radar",
+                      )
                     }
                     activeOpacity={0.85}
                     hitSlop={8}
                   >
                     <MaterialCommunityIcons
-                      name={mapLayer === "clouds" ? "weather-cloudy" : "radar"}
+                      name={
+                        mapLayer === "clouds"
+                          ? "weather-cloudy"
+                          : mapLayer === "rain"
+                            ? "weather-pouring"
+                            : "radar"
+                      }
                       size={16}
                       color="#fff"
                     />
                     <Text style={styles.mapTagText}>
-                      {mapLayer === "clouds" ? t.cloudsLayer : t.radarLayer}
+                      {mapLayer === "clouds"
+                        ? t.cloudsLayer
+                        : mapLayer === "rain"
+                          ? t.rainLayer
+                          : t.radarLayer}
                     </Text>
                   </TouchableOpacity>
                 </View>
