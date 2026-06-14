@@ -1059,12 +1059,17 @@ export default function Index() {
                         </View>
                         {i === 0 ? (
                           <View style={styles.timelineLabels} pointerEvents="none">
-                            {[6, 12, 18, 24].map((h) => (
+                            {[
+                              { label: "6h", pos: 12.5 },
+                              { label: "12h", pos: 37.5 },
+                              { label: "18h", pos: 62.5 },
+                              { label: "24h", pos: 87.5 },
+                            ].map((it) => (
                               <Text
-                                key={h}
-                                style={[styles.timelineLabelText, { left: `${(h / 24) * 100}%` }]}
+                                key={it.label}
+                                style={[styles.timelineLabelText, { left: `${it.pos}%` }]}
                               >
-                                {h}h
+                                {it.label}
                               </Text>
                             ))}
                           </View>
