@@ -441,6 +441,8 @@ export default function Index() {
   const [brightMode, setBrightMode] = useState<"auto" | "manual">("auto");
   const [manualLevel, setManualLevel] = useState<number>(0.7);
   const [brightOpen, setBrightOpen] = useState(false);
+  const [timeFmtOpen, setTimeFmtOpen] = useState(false);
+  const [unitOpen, setUnitOpen] = useState(false);
 
   // Tick the clock every second
   useEffect(() => {
@@ -826,52 +828,25 @@ export default function Index() {
               />
             </TouchableOpacity>
 
-            <View style={styles.unitToggle} testID="time-fmt-toggle-button">
-              <Pressable
-                onPress={() => persistTimeFmt("auto")}
-                style={[styles.unitChip, timeFmt === "auto" && styles.unitChipActive]}
-                testID="time-fmt-auto"
-              >
-                <Text style={[styles.unitText, timeFmt === "auto" && styles.unitTextActive]}>
-                  Auto
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => persistTimeFmt("24")}
-                style={[styles.unitChip, timeFmt === "24" && styles.unitChipActive]}
-                testID="time-fmt-24h"
-              >
-                <Text style={[styles.unitText, timeFmt === "24" && styles.unitTextActive]}>
-                  24h
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => persistTimeFmt("12")}
-                style={[styles.unitChip, timeFmt === "12" && styles.unitChipActive]}
-                testID="time-fmt-12h"
-              >
-                <Text style={[styles.unitText, timeFmt === "12" && styles.unitTextActive]}>
-                  12h
-                </Text>
-              </Pressable>
-            </View>
+            <TouchableOpacity
+              testID="time-fmt-button"
+              style={styles.iconBtn}
+              onPress={() => setTimeFmtOpen(true)}
+              accessibilityLabel="Format de l'heure"
+            >
+              <Text style={styles.iconBtnLabel}>
+                {timeFmt === "auto" ? "Auto" : timeFmt === "24" ? "24h" : "12h"}
+              </Text>
+            </TouchableOpacity>
 
-            <View style={styles.unitToggle} testID="unit-toggle-button">
-              <Pressable
-                onPress={() => persistUnit("C")}
-                style={[styles.unitChip, unit === "C" && styles.unitChipActive]}
-                testID="unit-celsius"
-              >
-                <Text style={[styles.unitText, unit === "C" && styles.unitTextActive]}>°C</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => persistUnit("F")}
-                style={[styles.unitChip, unit === "F" && styles.unitChipActive]}
-                testID="unit-fahrenheit"
-              >
-                <Text style={[styles.unitText, unit === "F" && styles.unitTextActive]}>°F</Text>
-              </Pressable>
-            </View>
+            <TouchableOpacity
+              testID="unit-button"
+              style={styles.iconBtn}
+              onPress={() => setUnitOpen(true)}
+              accessibilityLabel="Unité de température"
+            >
+              <Text style={styles.iconBtnLabel}>{unit === "C" ? "°C" : "°F"}</Text>
+            </TouchableOpacity>
           </View>
 
           {error ? (
@@ -1221,6 +1196,160 @@ export default function Index() {
           </SafeAreaView>
         </View>
       </Modal>
+      {/* TIME FORMAT POPOVER */}
+      <Modal
+        visible={timeFmtOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setTimeFmtOpen(false)}
+      >
+        <Pressable style={styles.brightBackdrop} onPress={() => setTimeFmtOpen(false)}>
+          <Pressable
+            style={styles.brightCard}
+            onPress={(e) => e.stopPropagation()}
+            testID="time-fmt-popover"
+          >
+            <Text style={styles.brightTitle}>Format de l'heure</Text>
+            <View style={styles.brightModeRow}>
+              <Pressable
+                testID="time-fmt-auto"
+                style={[styles.brightModeChip, timeFmt === "auto" && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistTimeFmt("auto");
+                  setTimeFmtOpen(false);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="clock-outline"
+                  size={22}
+                  color={timeFmt === "auto" ? "#111" : "#fff"}
+                />
+                <Text
+                  style={[styles.brightModeText, timeFmt === "auto" && styles.brightModeTextActive]}
+                >
+                  Auto
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="time-fmt-24h"
+                style={[styles.brightModeChip, timeFmt === "24" && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistTimeFmt("24");
+                  setTimeFmtOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontWeight: "800" },
+                    timeFmt === "24" && styles.brightModeTextActive,
+                  ]}
+                >
+                  24h
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="time-fmt-12h"
+                style={[styles.brightModeChip, timeFmt === "12" && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistTimeFmt("12");
+                  setTimeFmtOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontWeight: "800" },
+                    timeFmt === "12" && styles.brightModeTextActive,
+                  ]}
+                >
+                  12h
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={styles.brightHelp}>
+              {timeFmt === "auto"
+                ? `Auto suit les Réglages iPad (actuellement ${autoUses24h ? "24h" : "12h"}).`
+                : "Format forcé manuellement."}
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* UNIT POPOVER */}
+      <Modal
+        visible={unitOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setUnitOpen(false)}
+      >
+        <Pressable style={styles.brightBackdrop} onPress={() => setUnitOpen(false)}>
+          <Pressable
+            style={styles.brightCard}
+            onPress={(e) => e.stopPropagation()}
+            testID="unit-popover"
+          >
+            <Text style={styles.brightTitle}>Unité de température</Text>
+            <View style={styles.brightModeRow}>
+              <Pressable
+                testID="unit-celsius"
+                style={[styles.brightModeChip, unit === "C" && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistUnit("C");
+                  setUnitOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontWeight: "800" },
+                    unit === "C" && styles.brightModeTextActive,
+                  ]}
+                >
+                  °C
+                </Text>
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontSize: 12, opacity: 0.7 },
+                    unit === "C" && styles.brightModeTextActive,
+                  ]}
+                >
+                  Celsius
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="unit-fahrenheit"
+                style={[styles.brightModeChip, unit === "F" && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistUnit("F");
+                  setUnitOpen(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontWeight: "800" },
+                    unit === "F" && styles.brightModeTextActive,
+                  ]}
+                >
+                  °F
+                </Text>
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontSize: 12, opacity: 0.7 },
+                    unit === "F" && styles.brightModeTextActive,
+                  ]}
+                >
+                  Fahrenheit
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* BRIGHTNESS POPOVER */}
       <Modal
         visible={brightOpen}
@@ -1387,6 +1516,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconBtnLabel: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
 
   unitToggle: {
