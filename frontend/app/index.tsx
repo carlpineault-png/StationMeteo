@@ -1,5 +1,6 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Brightness from "expo-brightness";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
@@ -289,6 +290,8 @@ const K_PLACE = "weather.place";
 const K_BRIGHT_MODE = "weather.brightMode";
 const K_BRIGHT_LEVEL = "weather.brightLevel";
 const K_TIME_FMT = "weather.timeFmt";
+const K_KEEP_AWAKE = "weather.keepAwake";
+const KEEP_AWAKE_TAG = "weather-station";
 
 // ---------- Day-timeline helpers ----------
 type HourSample = { hour: number; sunshine: number; precip: number };
@@ -443,6 +446,8 @@ export default function Index() {
   const [brightOpen, setBrightOpen] = useState(false);
   const [timeFmtOpen, setTimeFmtOpen] = useState(false);
   const [unitOpen, setUnitOpen] = useState(false);
+  const [keepAwake, setKeepAwake] = useState<boolean>(true);
+  const [keepAwakeOpen, setKeepAwakeOpen] = useState(false);
 
   // Tick the clock every second
   useEffect(() => {
@@ -493,6 +498,8 @@ export default function Index() {
       if (storedTimeFmt === "auto" || storedTimeFmt === "24" || storedTimeFmt === "12") {
         setTimeFmt(storedTimeFmt);
       }
+      const storedKeepAwake = await storage.getItem<string>(K_KEEP_AWAKE, "true");
+      setKeepAwake(storedKeepAwake !== "false");
       const storedMode = await storage.getItem<string>(K_BRIGHT_MODE, "auto");
       if (storedMode === "auto" || storedMode === "manual") setBrightMode(storedMode);
       const storedLevel = await storage.getItem<string>(K_BRIGHT_LEVEL, "0.7");
@@ -543,6 +550,36 @@ export default function Index() {
     const maxX = Math.max(0, contentSize.width - layoutMeasurement.width);
     setHourlyCanLeft(x > 4);
     setHourlyCanRight(x < maxX - 4);
+  }, []);
+
+  // Keep the iPad awake while the weather station is open
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (keepAwake) {
+          await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+        } else {
+          deactivateKeepAwake(KEEP_AWAKE_TAG);
+        }
+      } catch {
+        // No-op: keep-awake is not supported on web; we ignore errors so the app keeps working.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      try {
+        deactivateKeepAwake(KEEP_AWAKE_TAG);
+      } catch {
+        // ignore
+      }
+      void cancelled;
+    };
+  }, [keepAwake]);
+
+  const persistKeepAwake = useCallback(async (v: boolean) => {
+    setKeepAwake(v);
+    await storage.setItem(K_KEEP_AWAKE, v ? "true" : "false");
   }, []);
 
   const persistUnit = useCallback(async (u: Unit) => {
@@ -824,6 +861,19 @@ export default function Index() {
               <MaterialCommunityIcons
                 name={brightMode === "auto" ? "brightness-auto" : "brightness-6"}
                 size={28}
+                color="#fff"
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="keep-awake-button"
+              style={styles.iconBtn}
+              onPress={() => setKeepAwakeOpen(true)}
+              accessibilityLabel="Mise en veille"
+            >
+              <MaterialCommunityIcons
+                name={keepAwake ? "lightbulb-on" : "lightbulb-outline"}
+                size={26}
                 color="#fff"
               />
             </TouchableOpacity>
@@ -1196,6 +1246,69 @@ export default function Index() {
           </SafeAreaView>
         </View>
       </Modal>
+      {/* KEEP AWAKE POPOVER */}
+      <Modal
+        visible={keepAwakeOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setKeepAwakeOpen(false)}
+      >
+        <Pressable style={styles.brightBackdrop} onPress={() => setKeepAwakeOpen(false)}>
+          <Pressable
+            style={styles.brightCard}
+            onPress={(e) => e.stopPropagation()}
+            testID="keep-awake-popover"
+          >
+            <Text style={styles.brightTitle}>Mise en veille</Text>
+            <View style={styles.brightModeRow}>
+              <Pressable
+                testID="keep-awake-on"
+                style={[styles.brightModeChip, keepAwake && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistKeepAwake(true);
+                  setKeepAwakeOpen(false);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="lightbulb-on"
+                  size={22}
+                  color={keepAwake ? "#111" : "#fff"}
+                />
+                <Text
+                  style={[styles.brightModeText, keepAwake && styles.brightModeTextActive]}
+                >
+                  Toujours allumé
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="keep-awake-off"
+                style={[styles.brightModeChip, !keepAwake && styles.brightModeChipActive]}
+                onPress={() => {
+                  persistKeepAwake(false);
+                  setKeepAwakeOpen(false);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="power-sleep"
+                  size={22}
+                  color={!keepAwake ? "#111" : "#fff"}
+                />
+                <Text
+                  style={[styles.brightModeText, !keepAwake && styles.brightModeTextActive]}
+                >
+                  Veille auto
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={styles.brightHelp}>
+              {keepAwake
+                ? "L'iPad reste allumé tant que l'app est ouverte (idéal pour une station météo)."
+                : "L'iPad s'éteint après le délai défini dans les Réglages iPad."}
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* TIME FORMAT POPOVER */}
       <Modal
         visible={timeFmtOpen}
