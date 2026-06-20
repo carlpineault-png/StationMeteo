@@ -6,6 +6,8 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
+  type AppStateStatus,
   ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
@@ -286,6 +288,7 @@ const K_UNIT = "weather.unit";
 const K_PLACE = "weather.place";
 const K_BRIGHT_MODE = "weather.brightMode";
 const K_BRIGHT_LEVEL = "weather.brightLevel";
+const K_TIME_FMT = "weather.timeFmt";
 
 // ---------- Day-timeline helpers ----------
 type HourSample = { hour: number; sunshine: number; precip: number };
@@ -383,7 +386,6 @@ export default function Index() {
   // Localization (auto-detected from iPad regional settings)
   const lang = useMemo(() => detectLang(), []);
   const locale = useMemo(() => detectLocaleTag(), []);
-  const uses24h = useMemo(() => detectUses24h(), []);
   const t = useMemo(() => getT(lang), [lang]);
 
   const safeFormatter = (
@@ -400,6 +402,14 @@ export default function Index() {
       }
     }
   };
+  const [unit, setUnit] = useState<Unit>("C");
+  const [timeFmt, setTimeFmt] = useState<"auto" | "24" | "12">("auto");
+  const [autoUses24h, setAutoUses24h] = useState<boolean>(() => detectUses24h());
+  const uses24h = useMemo(
+    () => (timeFmt === "auto" ? autoUses24h : timeFmt === "24"),
+    [timeFmt, autoUses24h],
+  );
+
   const timeFormatter = useMemo(
     () => safeFormatter(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
     [locale, uses24h],
@@ -414,7 +424,6 @@ export default function Index() {
     [locale],
   );
 
-  const [unit, setUnit] = useState<Unit>("C");
   const [place, setPlace] = useState<Place | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -437,6 +446,17 @@ export default function Index() {
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // Re-detect 24h/12h preference when the iPad regional settings may have changed
+  // (e.g. user toggled "24-Hour Time" in Settings → General → Date & Time and returned to the app).
+  useEffect(() => {
+    const refresh = () => setAutoUses24h(detectUses24h());
+    const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
+      if (state === "active") refresh();
+    });
+    refresh();
+    return () => sub.remove();
   }, []);
 
   // Auto-refresh weather: when the day changes (midnight crossover), and every 30 minutes
@@ -467,6 +487,10 @@ export default function Index() {
     (async () => {
       const storedUnit = await storage.getItem<string>(K_UNIT, "C");
       if (storedUnit === "F" || storedUnit === "C") setUnit(storedUnit);
+      const storedTimeFmt = await storage.getItem<string>(K_TIME_FMT, "auto");
+      if (storedTimeFmt === "auto" || storedTimeFmt === "24" || storedTimeFmt === "12") {
+        setTimeFmt(storedTimeFmt);
+      }
       const storedMode = await storage.getItem<string>(K_BRIGHT_MODE, "auto");
       if (storedMode === "auto" || storedMode === "manual") setBrightMode(storedMode);
       const storedLevel = await storage.getItem<string>(K_BRIGHT_LEVEL, "0.7");
@@ -522,6 +546,12 @@ export default function Index() {
   const persistUnit = useCallback(async (u: Unit) => {
     setUnit(u);
     await storage.setItem(K_UNIT, u);
+  }, []);
+
+  const persistTimeFmt = useCallback(async (f: "auto" | "24" | "12") => {
+    setTimeFmt(f);
+    if (f === "auto") setAutoUses24h(detectUses24h());
+    await storage.setItem(K_TIME_FMT, f);
   }, []);
 
   const setBrightModeAndPersist = useCallback(async (m: "auto" | "manual") => {
@@ -795,6 +825,36 @@ export default function Index() {
                 color="#fff"
               />
             </TouchableOpacity>
+
+            <View style={styles.unitToggle} testID="time-fmt-toggle-button">
+              <Pressable
+                onPress={() => persistTimeFmt("auto")}
+                style={[styles.unitChip, timeFmt === "auto" && styles.unitChipActive]}
+                testID="time-fmt-auto"
+              >
+                <Text style={[styles.unitText, timeFmt === "auto" && styles.unitTextActive]}>
+                  Auto
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => persistTimeFmt("24")}
+                style={[styles.unitChip, timeFmt === "24" && styles.unitChipActive]}
+                testID="time-fmt-24h"
+              >
+                <Text style={[styles.unitText, timeFmt === "24" && styles.unitTextActive]}>
+                  24h
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => persistTimeFmt("12")}
+                style={[styles.unitChip, timeFmt === "12" && styles.unitChipActive]}
+                testID="time-fmt-12h"
+              >
+                <Text style={[styles.unitText, timeFmt === "12" && styles.unitTextActive]}>
+                  12h
+                </Text>
+              </Pressable>
+            </View>
 
             <View style={styles.unitToggle} testID="unit-toggle-button">
               <Pressable

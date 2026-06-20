@@ -16,10 +16,37 @@ export function detectLang(): Lang {
 
 // Returns true if the iPad is set to 24-hour time
 export function detectUses24h(): boolean {
-  const cal = getCalendars()[0];
-  if (cal && typeof cal.uses24hourClock === "boolean") return cal.uses24hourClock;
-  // Fallback: French/Spanish default 24h, English defaults 12h
+  // 1) Primary: expo-localization Calendar info
+  try {
+    const cal = getCalendars()[0];
+    if (cal && typeof cal.uses24hourClock === "boolean") return cal.uses24hourClock;
+  } catch {
+    // ignore
+  }
+  // 2) Secondary: ask Intl what the locale uses by formatting a known time
+  try {
+    const tag = detectLocaleTag();
+    const sample = new Intl.DateTimeFormat(tag, {
+      hour: "numeric",
+      minute: "numeric",
+    }).format(new Date(2020, 0, 1, 15, 30));
+    // If formatted string contains 12-hour markers (AM/PM/a.m./p.m.), it's 12h
+    if (/AM|PM|am|pm|a\.m\.|p\.m\./i.test(sample)) return false;
+    // If hour shows >= 13 (e.g. "15:30"), definitely 24h
+    if (/\b(1[3-9]|2[0-3]):/i.test(sample)) return true;
+  } catch {
+    // ignore
+  }
+  // 3) Fallback heuristic: en/es-US default 12h, most others default 24h
   const lang = detectLang();
+  const tag = (() => {
+    try {
+      return detectLocaleTag();
+    } catch {
+      return "fr-FR";
+    }
+  })();
+  if (lang === "en" && /US|PH/i.test(tag)) return false;
   return lang !== "en";
 }
 
