@@ -2,7 +2,7 @@
   "expo": {
     "name": "Météo",
     "slug": "frontend",
-    "version": "1.1.1",
+    "version": "1.1.4",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",

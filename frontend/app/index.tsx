@@ -7,8 +7,6 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  AppState,
-  type AppStateStatus,
   ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
@@ -28,7 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { storage } from "@/src/utils/storage";
-import { detectLang, detectLocaleTag, detectUses24h, detectUses24hDiagnostic, getT } from "@/src/i18n/translations";
+import { detectLang, detectLocaleTag, getT } from "@/src/i18n/translations";
 
 // ---------- Types ----------
 type Unit = "C" | "F";
@@ -406,12 +404,8 @@ export default function Index() {
     }
   };
   const [unit, setUnit] = useState<Unit>("C");
-  const [timeFmt, setTimeFmt] = useState<"auto" | "24" | "12">("auto");
-  const [autoUses24h, setAutoUses24h] = useState<boolean>(() => detectUses24h());
-  const uses24h = useMemo(
-    () => (timeFmt === "auto" ? autoUses24h : timeFmt === "24"),
-    [timeFmt, autoUses24h],
-  );
+  const [timeFmt, setTimeFmt] = useState<"24" | "12">("24");
+  const uses24h = timeFmt === "24";
 
   const timeFormatter = useMemo(
     () => safeFormatter(locale, { hour: "2-digit", minute: "2-digit", hour12: !uses24h }),
@@ -446,24 +440,11 @@ export default function Index() {
   const [brightOpen, setBrightOpen] = useState(false);
   const [timeFmtOpen, setTimeFmtOpen] = useState(false);
   const [unitOpen, setUnitOpen] = useState(false);
-  const [keepAwake, setKeepAwake] = useState<boolean>(true);
-  const [keepAwakeOpen, setKeepAwakeOpen] = useState(false);
 
   // Tick the clock every second
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
-  }, []);
-
-  // Re-detect 24h/12h preference when the iPad regional settings may have changed
-  // (e.g. user toggled "24-Hour Time" in Settings → General → Date & Time and returned to the app).
-  useEffect(() => {
-    const refresh = () => setAutoUses24h(detectUses24h());
-    const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
-      if (state === "active") refresh();
-    });
-    refresh();
-    return () => sub.remove();
   }, []);
 
   // Auto-refresh weather: when the day changes (midnight crossover), and every 30 minutes
@@ -494,12 +475,13 @@ export default function Index() {
     (async () => {
       const storedUnit = await storage.getItem<string>(K_UNIT, "C");
       if (storedUnit === "F" || storedUnit === "C") setUnit(storedUnit);
-      const storedTimeFmt = await storage.getItem<string>(K_TIME_FMT, "auto");
-      if (storedTimeFmt === "auto" || storedTimeFmt === "24" || storedTimeFmt === "12") {
+      const storedTimeFmt = await storage.getItem<string>(K_TIME_FMT, "24");
+      if (storedTimeFmt === "24" || storedTimeFmt === "12") {
         setTimeFmt(storedTimeFmt);
       }
       const storedKeepAwake = await storage.getItem<string>(K_KEEP_AWAKE, "true");
-      setKeepAwake(storedKeepAwake !== "false");
+      // No state needed anymore — keep-awake is always on. Storage key kept to avoid orphans.
+      void storedKeepAwake;
       const storedMode = await storage.getItem<string>(K_BRIGHT_MODE, "auto");
       if (storedMode === "auto" || storedMode === "manual") setBrightMode(storedMode);
       const storedLevel = await storage.getItem<string>(K_BRIGHT_LEVEL, "0.7");
@@ -551,34 +533,22 @@ export default function Index() {
     setHourlyCanRight(x < maxX - 4);
   }, []);
 
-  // Keep the iPad awake while the weather station is open
+  // Keep the iPad awake permanently while the weather station is open (iPad stays plugged in).
   useEffect(() => {
-    let cancelled = false;
     (async () => {
       try {
-        if (keepAwake) {
-          await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
-        } else {
-          deactivateKeepAwake(KEEP_AWAKE_TAG);
-        }
+        await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
       } catch {
         // No-op: keep-awake is not supported on web; we ignore errors so the app keeps working.
       }
     })();
     return () => {
-      cancelled = true;
       try {
         deactivateKeepAwake(KEEP_AWAKE_TAG);
       } catch {
         // ignore
       }
-      void cancelled;
     };
-  }, [keepAwake]);
-
-  const persistKeepAwake = useCallback(async (v: boolean) => {
-    setKeepAwake(v);
-    await storage.setItem(K_KEEP_AWAKE, v ? "true" : "false");
   }, []);
 
   const persistUnit = useCallback(async (u: Unit) => {
@@ -586,9 +556,8 @@ export default function Index() {
     await storage.setItem(K_UNIT, u);
   }, []);
 
-  const persistTimeFmt = useCallback(async (f: "auto" | "24" | "12") => {
+  const persistTimeFmt = useCallback(async (f: "24" | "12") => {
     setTimeFmt(f);
-    if (f === "auto") setAutoUses24h(detectUses24h());
     await storage.setItem(K_TIME_FMT, f);
   }, []);
 
@@ -866,27 +835,12 @@ export default function Index() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              testID="keep-awake-button"
-              style={styles.iconBtn}
-              onPress={() => setKeepAwakeOpen(true)}
-              accessibilityLabel="Mise en veille"
-            >
-              <MaterialCommunityIcons
-                name={keepAwake ? "lightbulb-on" : "lightbulb-outline"}
-                size={26}
-                color="#fff"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
               testID="time-fmt-button"
               style={styles.iconBtn}
               onPress={() => setTimeFmtOpen(true)}
               accessibilityLabel="Format de l'heure"
             >
-              <Text style={styles.iconBtnLabel}>
-                {timeFmt === "auto" ? "Auto" : timeFmt === "24" ? "24h" : "12h"}
-              </Text>
+              <Text style={styles.iconBtnLabel}>{timeFmt === "24" ? "24h" : "12h"}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1095,7 +1049,8 @@ export default function Index() {
                     onPress={() => setMapExpanded(true)}
                     hitSlop={8}
                   >
-                    <MaterialCommunityIcons name="arrow-expand" size={22} color="#fff" />
+                    <MaterialCommunityIcons name="arrow-expand-all" size={16} color="#fff" />
+                    <Text style={styles.mapExpandBtnText}>Plein écran</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     testID="map-layer-toggle"
@@ -1238,69 +1193,6 @@ export default function Index() {
           </SafeAreaView>
         </View>
       </Modal>
-      {/* KEEP AWAKE POPOVER */}
-      <Modal
-        visible={keepAwakeOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setKeepAwakeOpen(false)}
-      >
-        <Pressable style={styles.brightBackdrop} onPress={() => setKeepAwakeOpen(false)}>
-          <Pressable
-            style={styles.brightCard}
-            onPress={(e) => e.stopPropagation()}
-            testID="keep-awake-popover"
-          >
-            <Text style={styles.brightTitle}>Mise en veille</Text>
-            <View style={styles.brightModeRow}>
-              <Pressable
-                testID="keep-awake-on"
-                style={[styles.brightModeChip, keepAwake && styles.brightModeChipActive]}
-                onPress={() => {
-                  persistKeepAwake(true);
-                  setKeepAwakeOpen(false);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="lightbulb-on"
-                  size={22}
-                  color={keepAwake ? "#111" : "#fff"}
-                />
-                <Text
-                  style={[styles.brightModeText, keepAwake && styles.brightModeTextActive]}
-                >
-                  Toujours allumé
-                </Text>
-              </Pressable>
-              <Pressable
-                testID="keep-awake-off"
-                style={[styles.brightModeChip, !keepAwake && styles.brightModeChipActive]}
-                onPress={() => {
-                  persistKeepAwake(false);
-                  setKeepAwakeOpen(false);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="power-sleep"
-                  size={22}
-                  color={!keepAwake ? "#111" : "#fff"}
-                />
-                <Text
-                  style={[styles.brightModeText, !keepAwake && styles.brightModeTextActive]}
-                >
-                  Veille auto
-                </Text>
-              </Pressable>
-            </View>
-            <Text style={styles.brightHelp}>
-              {keepAwake
-                ? "L'iPad reste allumé tant que l'app est ouverte (idéal pour une station météo)."
-                : "L'iPad s'éteint après le délai défini dans les Réglages iPad."}
-            </Text>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       {/* TIME FORMAT POPOVER */}
       <Modal
         visible={timeFmtOpen}
@@ -1317,25 +1209,6 @@ export default function Index() {
             <Text style={styles.brightTitle}>Format de l'heure</Text>
             <View style={styles.brightModeRow}>
               <Pressable
-                testID="time-fmt-auto"
-                style={[styles.brightModeChip, timeFmt === "auto" && styles.brightModeChipActive]}
-                onPress={() => {
-                  persistTimeFmt("auto");
-                  setTimeFmtOpen(false);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={22}
-                  color={timeFmt === "auto" ? "#111" : "#fff"}
-                />
-                <Text
-                  style={[styles.brightModeText, timeFmt === "auto" && styles.brightModeTextActive]}
-                >
-                  Auto
-                </Text>
-              </Pressable>
-              <Pressable
                 testID="time-fmt-24h"
                 style={[styles.brightModeChip, timeFmt === "24" && styles.brightModeChipActive]}
                 onPress={() => {
@@ -1351,6 +1224,15 @@ export default function Index() {
                   ]}
                 >
                   24h
+                </Text>
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontSize: 12, opacity: 0.7 },
+                    timeFmt === "24" && styles.brightModeTextActive,
+                  ]}
+                >
+                  Ex : 14:30
                 </Text>
               </Pressable>
               <Pressable
@@ -1370,50 +1252,17 @@ export default function Index() {
                 >
                   12h
                 </Text>
+                <Text
+                  style={[
+                    styles.brightModeText,
+                    { fontSize: 12, opacity: 0.7 },
+                    timeFmt === "12" && styles.brightModeTextActive,
+                  ]}
+                >
+                  Ex : 2:30 PM
+                </Text>
               </Pressable>
             </View>
-            <Text style={styles.brightHelp}>
-              {timeFmt === "auto"
-                ? `Auto suit les Réglages iPad (actuellement ${autoUses24h ? "24h" : "12h"}).`
-                : "Format forcé manuellement."}
-            </Text>
-            {timeFmt === "auto" ? (
-              <View style={styles.diagBlock} testID="time-fmt-diag">
-                {(() => {
-                  const d = detectUses24hDiagnostic();
-                  return (
-                    <>
-                      <Text style={styles.diagLine}>
-                        • Réglages iPad (uses24hourClock) :{" "}
-                        <Text style={styles.diagValue}>
-                          {d.calendar === null ? "non fourni" : d.calendar ? "24h" : "12h"}
-                        </Text>
-                      </Text>
-                      <Text style={styles.diagLine}>
-                        • Cycle horaire Intl :{" "}
-                        <Text style={styles.diagValue}>{d.hourCycle ?? "—"}</Text>
-                      </Text>
-                      <Text style={styles.diagLine}>
-                        • Test format (15h30) :{" "}
-                        <Text style={styles.diagValue}>{d.sampleFormat ?? "—"}</Text>
-                      </Text>
-                    </>
-                  );
-                })()}
-                <Pressable
-                  testID="time-fmt-refresh"
-                  style={styles.diagBtn}
-                  onPress={() => setAutoUses24h(detectUses24h())}
-                >
-                  <MaterialCommunityIcons name="refresh" size={16} color="#fff" />
-                  <Text style={styles.diagBtnText}>Re-détecter</Text>
-                </Pressable>
-                <Text style={styles.diagHint}>
-                  Si le format reste incorrect après changement dans les Réglages iPad,
-                  forcez 24h ou 12h ci-dessus — ou redémarrez Expo Go.
-                </Text>
-              </View>
-            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1853,14 +1702,22 @@ const styles = StyleSheet.create({
   mapExpandBtn: {
     position: "absolute",
     top: 10,
-    right: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    left: 150,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
     zIndex: 5,
+  },
+  mapExpandBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
   },
   mapTag: {
     position: "absolute",
