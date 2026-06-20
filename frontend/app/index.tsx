@@ -542,7 +542,6 @@ export default function Index() {
 
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapLayer, setMapLayer] = useState<"radar" | "rain" | "clouds">("radar");
-  const [alertDismissedUntil, setAlertDismissedUntil] = useState<number>(0);
 
   const handleHourlyScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number }; layoutMeasurement: { width: number }; contentSize: { width: number } } }) => {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
@@ -741,8 +740,9 @@ export default function Index() {
   }, [place]);
 
   const alerts = useMemo(() => (weather ? computeAlerts(weather.daily) : []), [weather]);
-  // Alert is visible if there are alerts and we are past the dismiss expiry timestamp
-  const showAlert = alerts.length > 0 && Date.now() >= alertDismissedUntil;
+  // Alerts always stay visible while they exist — they are not dismissible
+  // (this is a permanent weather station display).
+  const showAlert = alerts.length > 0;
 
   // Build the Windy embed URL centered on current location.
   // `mapLayer === "clouds"` shows cloud-cover forecast (future); `radar` shows precipitation past+now.
@@ -984,14 +984,6 @@ export default function Index() {
                           </View>
                         ))}
                       </View>
-                      <TouchableOpacity
-                        testID="alert-dismiss-button"
-                        onPress={() => setAlertDismissedUntil(Date.now() + 10 * 60 * 1000)}
-                        hitSlop={12}
-                        style={styles.alertBarClose}
-                      >
-                        <MaterialCommunityIcons name="close-circle" size={fs(26)} color="#fff" />
-                      </TouchableOpacity>
                     </View>
                   ) : null}
                 </View>
