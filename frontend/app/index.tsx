@@ -777,8 +777,8 @@ export default function Index() {
         <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         <View style={styles.darkOverlay} />
       </ImageBackground>
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.safe} edges={["top", "bottom", "left", "right"]}>
+      <StatusBar style="light" hidden={true} />
+      <SafeAreaView style={styles.safe} edges={["bottom", "left", "right"]}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
