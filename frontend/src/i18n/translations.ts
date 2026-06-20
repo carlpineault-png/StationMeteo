@@ -14,30 +14,48 @@ export function detectLang(): Lang {
   return "fr";
 }
 
-// Returns true if the iPad is set to 24-hour time
+// Returns true if the iPad is set to 24-hour time.
+// Tries multiple sources because iOS does NOT always propagate the user's
+// "24-Hour Time" override to expo-localization reliably (especially without restart).
 export function detectUses24h(): boolean {
-  // 1) Primary: expo-localization Calendar info
+  // 1) PRIMARY: expo-localization Calendar info (iOS native source of truth)
   try {
-    const cal = getCalendars()[0];
-    if (cal && typeof cal.uses24hourClock === "boolean") return cal.uses24hourClock;
+    const cals = getCalendars();
+    for (const cal of cals ?? []) {
+      if (cal && typeof cal.uses24hourClock === "boolean") return cal.uses24hourClock;
+    }
   } catch {
     // ignore
   }
-  // 2) Secondary: ask Intl what the locale uses by formatting a known time
+
+  // 2) SECONDARY: Intl.DateTimeFormat resolvedOptions().hourCycle ("h11"/"h12" = 12h, "h23"/"h24" = 24h)
+  try {
+    const tag = detectLocaleTag();
+    const resolved = new Intl.DateTimeFormat(tag, { hour: "numeric" }).resolvedOptions() as {
+      hour12?: boolean;
+      hourCycle?: string;
+    };
+    if (resolved.hourCycle === "h23" || resolved.hourCycle === "h24") return true;
+    if (resolved.hourCycle === "h11" || resolved.hourCycle === "h12") return false;
+    if (typeof resolved.hour12 === "boolean") return !resolved.hour12;
+  } catch {
+    // ignore
+  }
+
+  // 3) TERTIARY: format a known afternoon time and look at the rendered output
   try {
     const tag = detectLocaleTag();
     const sample = new Intl.DateTimeFormat(tag, {
       hour: "numeric",
       minute: "numeric",
     }).format(new Date(2020, 0, 1, 15, 30));
-    // If formatted string contains 12-hour markers (AM/PM/a.m./p.m.), it's 12h
     if (/AM|PM|am|pm|a\.m\.|p\.m\./i.test(sample)) return false;
-    // If hour shows >= 13 (e.g. "15:30"), definitely 24h
-    if (/\b(1[3-9]|2[0-3]):/i.test(sample)) return true;
+    if (/\b(1[3-9]|2[0-3])[:.\s]/i.test(sample)) return true;
   } catch {
     // ignore
   }
-  // 3) Fallback heuristic: en/es-US default 12h, most others default 24h
+
+  // 4) FALLBACK heuristic: en-US/PH default 12h, most others default 24h
   const lang = detectLang();
   const tag = (() => {
     try {
@@ -48,6 +66,49 @@ export function detectUses24h(): boolean {
   })();
   if (lang === "en" && /US|PH/i.test(tag)) return false;
   return lang !== "en";
+}
+
+// Diagnostic helper — returns each detection source value (for the time-format popover)
+export function detectUses24hDiagnostic(): {
+  calendar: boolean | null;
+  hourCycle: string | null;
+  sampleFormat: string | null;
+  resolved: boolean;
+} {
+  let calendar: boolean | null = null;
+  try {
+    const cals = getCalendars();
+    for (const cal of cals ?? []) {
+      if (cal && typeof cal.uses24hourClock === "boolean") {
+        calendar = cal.uses24hourClock;
+        break;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  let hourCycle: string | null = null;
+  try {
+    const tag = detectLocaleTag();
+    const r = new Intl.DateTimeFormat(tag, { hour: "numeric" }).resolvedOptions() as {
+      hour12?: boolean;
+      hourCycle?: string;
+    };
+    hourCycle = r.hourCycle ?? (typeof r.hour12 === "boolean" ? (r.hour12 ? "h12" : "h23") : null);
+  } catch {
+    // ignore
+  }
+  let sampleFormat: string | null = null;
+  try {
+    const tag = detectLocaleTag();
+    sampleFormat = new Intl.DateTimeFormat(tag, {
+      hour: "numeric",
+      minute: "numeric",
+    }).format(new Date(2020, 0, 1, 15, 30));
+  } catch {
+    // ignore
+  }
+  return { calendar, hourCycle, sampleFormat, resolved: detectUses24h() };
 }
 
 // BCP-47 tag for Intl — sanitised so values like "en-US@posix" or "C" don't crash Intl

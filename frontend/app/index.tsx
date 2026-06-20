@@ -28,7 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { storage } from "@/src/utils/storage";
-import { detectLang, detectLocaleTag, detectUses24h, getT } from "@/src/i18n/translations";
+import { detectLang, detectLocaleTag, detectUses24h, detectUses24hDiagnostic, getT } from "@/src/i18n/translations";
 
 // ---------- Types ----------
 type Unit = "C" | "F";
@@ -1385,6 +1385,43 @@ export default function Index() {
                 ? `Auto suit les Réglages iPad (actuellement ${autoUses24h ? "24h" : "12h"}).`
                 : "Format forcé manuellement."}
             </Text>
+            {timeFmt === "auto" ? (
+              <View style={styles.diagBlock} testID="time-fmt-diag">
+                {(() => {
+                  const d = detectUses24hDiagnostic();
+                  return (
+                    <>
+                      <Text style={styles.diagLine}>
+                        • Réglages iPad (uses24hourClock) :{" "}
+                        <Text style={styles.diagValue}>
+                          {d.calendar === null ? "non fourni" : d.calendar ? "24h" : "12h"}
+                        </Text>
+                      </Text>
+                      <Text style={styles.diagLine}>
+                        • Cycle horaire Intl :{" "}
+                        <Text style={styles.diagValue}>{d.hourCycle ?? "—"}</Text>
+                      </Text>
+                      <Text style={styles.diagLine}>
+                        • Test format (15h30) :{" "}
+                        <Text style={styles.diagValue}>{d.sampleFormat ?? "—"}</Text>
+                      </Text>
+                    </>
+                  );
+                })()}
+                <Pressable
+                  testID="time-fmt-refresh"
+                  style={styles.diagBtn}
+                  onPress={() => setAutoUses24h(detectUses24h())}
+                >
+                  <MaterialCommunityIcons name="refresh" size={16} color="#fff" />
+                  <Text style={styles.diagBtnText}>Re-détecter</Text>
+                </Pressable>
+                <Text style={styles.diagHint}>
+                  Si le format reste incorrect après changement dans les Réglages iPad,
+                  forcez 24h ou 12h ci-dessus — ou redémarrez Expo Go.
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1636,6 +1673,28 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.3,
   },
+  diagBlock: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    gap: 4,
+  },
+  diagLine: { color: "rgba(255,255,255,0.78)", fontSize: 12 },
+  diagValue: { color: "#fff", fontWeight: "700" },
+  diagBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    marginTop: 6,
+  },
+  diagBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  diagHint: { color: "rgba(255,255,255,0.55)", fontSize: 11, fontStyle: "italic", marginTop: 4 },
 
   unitToggle: {
     flexDirection: "row",
